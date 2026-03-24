@@ -3,26 +3,40 @@
   "version": "0.1.0",
   "description": "Security guard for AI coding agents - detects secrets, blocks dangerous operations",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/cli.js",
   "bin": {
     "vibeguard": "bin/vibeguard.js"
   },
+  "files": [
+    "bin",
+    "dist",
+    "hooks",
+    "patterns.toml",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup && cp -r src/dashboard/public dist/dashboard/",
     "dev": "tsup --watch",
+    "prepack": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "dashboard": "node dist/dashboard/server.js",
     "hook": "node dist/hooks/pre-tool-use.js"
   },
-  "keywords": ["security", "secrets", "coding-agent", "claude-code", "mcp"],
+  "keywords": [
+    "security",
+    "secrets",
+    "coding-agent",
+    "claude-code",
+    "mcp"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0",
     "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "dependencies": {

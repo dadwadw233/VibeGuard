@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig([
   {
     entry: {
+      cli: "src/cli/index.ts",
       "hooks/pre-tool-use": "src/hooks/pre-tool-use.ts",
       "hooks/user-prompt-submit": "src/hooks/user-prompt-submit.ts",
       "mcp/server": "src/mcp/server.ts",
