@@ -5,6 +5,7 @@ Security guard for AI coding agents. Detects secrets, blocks dangerous operation
 ## Features
 
 - **Secret Detection** - Detects API keys, tokens, passwords, private keys in code (~30 rules covering AWS, GitHub, Anthropic, OpenAI, Stripe, Slack, Google, and more)
+- **User Prompt Protection** - Scans user chat messages for secrets before they are sent to the AI, blocking accidental credential sharing
 - **Sensitive File Protection** - Warns when agents read `.env`, SSH keys, cloud credentials, certificates
 - **Dangerous Command Prevention** - Blocks `rm -rf /`, `DROP TABLE`, force push to main, and other destructive operations
 - **Security Dashboard** - Web UI to view event history, manage rules, and add custom patterns
@@ -49,6 +50,18 @@ Add to `~/.claude/settings.json`:
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/VibeGuard/dist/hooks/user-prompt-submit.js",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
@@ -84,13 +97,21 @@ The dashboard provides:
 
 ## How It Works
 
-VibeGuard integrates via Claude Code's **PreToolUse hooks**. Before any Write, Edit, Read, or Bash operation executes:
+VibeGuard integrates via Claude Code's hook system at two levels:
 
+### User Prompt Protection (`UserPromptSubmit`)
+When a user submits a chat message, VibeGuard scans it for secrets **before** it reaches the AI:
+- **Critical/High** severity: message is **blocked** and erased from context
+- **Medium/Low** severity: a warning is injected as context for the AI
+
+### Tool Operation Protection (`PreToolUse`)
+Before any Write, Edit, Read, or Bash operation executes:
 1. The hook receives the operation details via stdin (JSON)
 2. The scanner engine checks against detection rules
 3. **Critical/High** severity findings: operation is **blocked** (denied)
 4. **Medium/Low** severity findings: user is **asked** to confirm
-5. All findings are logged to a local SQLite database (`~/.vibeguard/events.db`)
+
+All findings from both hooks are logged to a local SQLite database (`~/.vibeguard/events.db`).
 
 ## Detection Rules
 

@@ -50,10 +50,22 @@ export interface HookInput {
   cwd?: string;
 }
 
+export interface UserPromptInput {
+  hook_event_name: "UserPromptSubmit";
+  session_id?: string;
+  cwd?: string;
+  prompt: string;
+}
+
 export interface HookOutput {
   hookSpecificOutput?: {
     hookEventName: string;
     permissionDecision: "allow" | "deny" | "ask";
     permissionDecisionReason?: string;
   };
+}
+
+export interface UserPromptOutput {
+  decision?: "block";
+  reason?: string;
 }
