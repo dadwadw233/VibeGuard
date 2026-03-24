@@ -1,0 +1,13 @@
+{
+  "name": "vibeguard",
+  "description": "Security guard for AI coding agents - detects secrets, blocks dangerous operations, provides a security dashboard",
+  "version": "0.1.0",
+  "author": {
+    "name": "VibeGuard"
+  },
+  "homepage": "https://github.com/dadwadw233/VibeGuard",
+  "license": "MIT",
+  "setup": {
+    "command": "npm install && npm run build"
+  }
+}
