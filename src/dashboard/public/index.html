@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeGuard - Security Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <span class="shield">&#128737;</span>
+      <h1>VibeGuard</h1>
+    </div>
+    <nav>
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="events">Events</button>
+      <button class="tab" data-tab="rules">Rules</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Overview Tab -->
+    <section id="overview" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="stat-total">-</div>
+          <div class="stat-label">Total Events</div>
+        </div>
+        <div class="stat-card blocked">
+          <div class="stat-number" id="stat-blocked">-</div>
+          <div class="stat-label">Blocked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-secrets">-</div>
+          <div class="stat-label">Secrets Detected</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-commands">-</div>
+          <div class="stat-label">Dangerous Commands</div>
+        </div>
+      </div>
+
+      <div class="chart-section">
+        <h2>Events (Last 30 Days)</h2>
+        <div id="daily-chart" class="chart"></div>
+      </div>
+
+      <div class="severity-section">
+        <h2>By Severity</h2>
+        <div id="severity-bars"></div>
+      </div>
+    </section>
+
+    <!-- Events Tab -->
+    <section id="events" class="tab-content">
+      <div class="filters">
+        <select id="filter-category">
+          <option value="">All Categories</option>
+          <option value="secret">Secrets</option>
+          <option value="sensitive-file">Sensitive Files</option>
+          <option value="dangerous-command">Dangerous Commands</option>
+        </select>
+        <select id="filter-severity">
+          <option value="">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select id="filter-blocked">
+          <option value="">All Status</option>
+          <option value="true">Blocked</option>
+          <option value="false">Allowed</option>
+        </select>
+        <button id="btn-refresh" class="btn">Refresh</button>
+      </div>
+      <div class="table-wrapper">
+        <table id="events-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Tool</th>
+              <th>Category</th>
+              <th>Rule</th>
+              <th>Severity</th>
+              <th>Status</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="events-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <button id="btn-prev" class="btn" disabled>Previous</button>
+        <span id="page-info">Page 1</span>
+        <button id="btn-next" class="btn">Next</button>
+      </div>
+    </section>
+
+    <!-- Rules Tab -->
+    <section id="rules" class="tab-content">
+      <div class="rules-header">
+        <h2>Detection Rules</h2>
+        <button id="btn-add-rule" class="btn btn-primary">+ Add Custom Rule</button>
+      </div>
+
+      <!-- Add Custom Rule Form (hidden by default) -->
+      <div id="add-rule-form" class="form-card hidden">
+        <h3>Add Custom Rule</h3>
+        <div class="form-group">
+          <label>Rule ID</label>
+          <input type="text" id="rule-id" placeholder="e.g., custom-internal-token">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="rule-desc" placeholder="e.g., Internal API Token">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="rule-category">
+            <option value="secret">Secret</option>
+            <option value="sensitive-file">Sensitive File</option>
+            <option value="dangerous-command">Dangerous Command</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Regex Pattern</label>
+          <input type="text" id="rule-regex" placeholder="e.g., INTERNAL_[A-Z0-9]{32}">
+        </div>
+        <div class="form-group">
+          <label>Severity</label>
+          <select id="rule-severity">
+            <option value="critical">Critical</option>
+            <option value="high" selected>High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button id="btn-save-rule" class="btn btn-primary">Save</button>
+          <button id="btn-cancel-rule" class="btn">Cancel</button>
+        </div>
+      </div>
+
+      <div class="rules-filters">
+        <select id="rules-filter-category">
+          <option value="">All Categories</option>
+          <option value="secret">Secrets</option>
+          <option value="sensitive-file">Sensitive Files</option>
+          <option value="dangerous-command">Dangerous Commands</option>
+        </select>
+      </div>
+
+      <div id="rules-list" class="rules-list"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
