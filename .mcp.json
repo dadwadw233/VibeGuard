@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "vibeguard": {
+      "command": "node",
+      "args": ["dist/mcp/server.js"],
+      "type": "stdio"
+    }
+  }
+}
