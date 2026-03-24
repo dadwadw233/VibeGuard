@@ -1,0 +1,89 @@
+# VibeGuard Secret Detection Patterns
+# Compatible with gitleaks TOML format
+# These are loaded as reference; the actual patterns are in src/scanner/secret-patterns.ts
+
+title = "VibeGuard Secret Detection Rules"
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+keywords = ["AKIA", "AGPA", "AIDA", "AROA", "AIPA", "ANPA", "ANVA", "ASIA", "A3T"]
+severity = "critical"
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API Key"
+regex = '''sk-ant-[a-zA-Z0-9_-]{80,}'''
+keywords = ["sk-ant-"]
+severity = "critical"
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API Key"
+regex = '''sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}'''
+keywords = ["sk-", "T3BlbkFJ"]
+severity = "critical"
+
+[[rules]]
+id = "github-pat"
+description = "GitHub Personal Access Token"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+keywords = ["ghp_"]
+severity = "critical"
+
+[[rules]]
+id = "github-fine-grained-pat"
+description = "GitHub Fine-Grained Personal Access Token"
+regex = '''github_pat_[0-9a-zA-Z_]{82}'''
+keywords = ["github_pat_"]
+severity = "critical"
+
+[[rules]]
+id = "stripe-secret-key"
+description = "Stripe Secret Key"
+regex = '''sk_live_[0-9a-zA-Z]{24,}'''
+keywords = ["sk_live_"]
+severity = "critical"
+
+[[rules]]
+id = "slack-bot-token"
+description = "Slack Bot Token"
+regex = '''xoxb-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}'''
+keywords = ["xoxb-"]
+severity = "critical"
+
+[[rules]]
+id = "google-api-key"
+description = "Google API Key"
+regex = '''AIza[0-9A-Za-z_-]{35}'''
+keywords = ["AIza"]
+severity = "high"
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----'''
+keywords = ["PRIVATE KEY"]
+severity = "critical"
+
+[[rules]]
+id = "database-url-password"
+description = "Database Connection String with Password"
+regex = '''(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^:]+:[^@\s]{8,}@[^\s'"]+'''
+keywords = ["mongodb://", "postgres://", "postgresql://", "mysql://", "redis://", "amqp://"]
+severity = "high"
+
+[[rules]]
+id = "sendgrid-api-key"
+description = "SendGrid API Key"
+regex = '''SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}'''
+keywords = ["SG."]
+severity = "critical"
+
+[[rules]]
+id = "npm-token"
+description = "NPM Access Token"
+regex = '''npm_[a-zA-Z0-9]{36}'''
+keywords = ["npm_"]
+severity = "critical"
