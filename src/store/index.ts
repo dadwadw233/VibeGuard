@@ -1,11 +1,11 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
 import { SCHEMA_SQL } from "./schema.js";
 import type { Finding } from "../scanner/types.js";
+import { getVibeGuardDir } from "../paths.js";
 
-const VIBEGUARD_DIR = join(homedir(), ".vibeguard");
+const VIBEGUARD_DIR = getVibeGuardDir();
 const DB_PATH = join(VIBEGUARD_DIR, "events.db");
 
 let _db: Database.Database | null = null;
