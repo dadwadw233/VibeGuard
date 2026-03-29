@@ -54,10 +54,17 @@ Claude integration includes:
 - `UserPromptSubmit` secret scanning
 - optional MCP registration when the `claude` CLI is available
 
+To remove managed Claude integration:
+
+```bash
+vibeguard uninstall --target claude
+```
+
 ## Commands
 
 ```bash
 vibeguard install [--target claude]
+vibeguard uninstall [--target claude]
 vibeguard doctor [--target claude]
 vibeguard launch claude -- <claude args...>
 vibeguard dashboard

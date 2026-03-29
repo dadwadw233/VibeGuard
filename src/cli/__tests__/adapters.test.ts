@@ -23,7 +23,7 @@ function createRuntime(tempDir: string): RuntimePaths {
 
   return {
     packageRoot: tempDir,
-    packageName: "@dadwadw/vibeguard",
+    packageName: "@embodot/vibeguard",
     packageVersion: "0.1.1-test",
     distDir,
     cliEntry: join(distDir, "cli.js"),
@@ -74,6 +74,10 @@ if [ "$1" = "mcp" ] && [ "$2" = "add" ]; then
   printf '%s\\n' "$@" > "$STATE"
   exit 0
 fi
+if [ "$1" = "mcp" ] && [ "$2" = "remove" ]; then
+  rm -f "$STATE"
+  exit 0
+fi
 exit 0
 `);
 
@@ -97,5 +101,49 @@ exit 0
 
     expect(doctor.ok).toBe(true);
     expect(mcpArgs).toContain("vibeguard");
+  });
+
+  it("uninstalls Claude integration by removing managed hooks and MCP registration", () => {
+    const claudeLog = join(tempDir, "claude-mcp.log");
+    writeExecutable(join(binDir, "claude"), `#!/bin/sh
+STATE="${claudeLog}"
+if [ "$1" = "mcp" ] && [ "$2" = "get" ] && [ "$3" = "vibeguard" ]; then
+  [ -f "$STATE" ] && exit 0
+  exit 1
+fi
+if [ "$1" = "mcp" ] && [ "$2" = "add" ]; then
+  printf '%s\\n' "$@" > "$STATE"
+  exit 0
+fi
+if [ "$1" = "mcp" ] && [ "$2" = "remove" ] && [ "$3" = "vibeguard" ]; then
+  rm -f "$STATE"
+  exit 0
+fi
+exit 0
+`);
+
+    const adapter = new ClaudeAdapter();
+    const runtime = createRuntime(tempDir);
+    const state = {
+      version: 1 as const,
+      packageRoot: tempDir,
+      updatedAt: "",
+      targets: {},
+    } as InstallState;
+
+    const installSummary = adapter.install(runtime, state);
+    expect(installSummary.ok).toBe(true);
+    expect(readFileSync(claudeLog, "utf-8")).toContain("vibeguard");
+
+    const uninstallSummary = adapter.uninstall(runtime, {
+      ...state,
+      targets: { claude: installSummary.state },
+    });
+
+    expect(uninstallSummary.ok).toBe(true);
+    const settings = readFileSync(join(tempDir, "claude-home", "settings.json"), "utf-8");
+    expect(settings).not.toContain("pre-tool-use.js");
+    expect(settings).not.toContain("user-prompt-submit.js");
+    expect(() => readFileSync(claudeLog, "utf-8")).toThrow();
   });
 });

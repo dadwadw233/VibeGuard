@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname } from "path";
 import { getClaudeSettingsPath, getDashboardUrl } from "../../paths.js";
-import { mergeClaudeSettings, type ClaudeSettings } from "../claude-settings.js";
+import { mergeClaudeSettings, removeManagedClaudeHooks, type ClaudeSettings } from "../claude-settings.js";
 import { findExecutable, launchCommand, runCommand, shellQuote } from "../command-utils.js";
 import { getBetterSqliteHealthCheck, getRuntimeConsistencyCheck } from "../health.js";
 import type { InstallState } from "../install-state.js";
 import type { RuntimePaths } from "../runtime.js";
-import type { DoctorCheck, DoctorSummary, HostAdapter, InstallSummary } from "./types.js";
+import type { DoctorCheck, DoctorSummary, HostAdapter, InstallSummary, UninstallSummary } from "./types.js";
 
 export class ClaudeAdapter implements HostAdapter {
   readonly target = "claude" as const;
@@ -57,6 +57,38 @@ export class ClaudeAdapter implements HostAdapter {
           launch: "vibeguard launch claude",
         },
       },
+    };
+  }
+
+  uninstall(runtime: RuntimePaths, state: InstallState): UninstallSummary {
+    const settingsPath = getClaudeSettingsPath();
+    const preToolCommand = `${shellQuote(runtime.nodeBinary)} ${shellQuote(runtime.preToolUseHook)}`;
+    const userPromptCommand = `${shellQuote(runtime.nodeBinary)} ${shellQuote(runtime.userPromptHook)}`;
+    const previous = state.targets.claude?.commands;
+    const existingSettings = this.readSettings(settingsPath);
+    const nextSettings = removeManagedClaudeHooks(existingSettings, {
+      preToolUse: preToolCommand,
+      userPrompt: userPromptCommand,
+      previousPreToolUse: previous?.preToolUse,
+      previousUserPrompt: previous?.userPrompt,
+    });
+
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, `${JSON.stringify(nextSettings, null, 2)}\n`, "utf-8");
+
+    const details = [`Removed managed Claude hooks from ${settingsPath}.`];
+    if (findExecutable("claude")) {
+      const mcp = this.removeMcpServer();
+      details.push(mcp.details);
+    } else {
+      details.push("Claude CLI not found on PATH, so MCP unregister was skipped.");
+    }
+
+    return {
+      target: this.target,
+      ok: true,
+      headline: "Removed Claude integration.",
+      details,
     };
   }
 
@@ -204,6 +236,23 @@ export class ClaudeAdapter implements HostAdapter {
     return {
       ok: false,
       details: "Claude MCP server 'vibeguard' is not registered. Re-run `vibeguard install --target claude`.",
+    };
+  }
+
+  private removeMcpServer(): { ok: boolean; details: string } {
+    const getResult = runCommand("claude", ["mcp", "get", "vibeguard"]);
+    if (!getResult.ok) {
+      return { ok: true, details: "Claude MCP server 'vibeguard' was not registered." };
+    }
+
+    const removeResult = runCommand("claude", ["mcp", "remove", "vibeguard"]);
+    if (removeResult.ok) {
+      return { ok: true, details: "Removed Claude MCP server 'vibeguard'." };
+    }
+
+    return {
+      ok: false,
+      details: `Failed to remove Claude MCP server automatically: ${removeResult.stderr.trim() || removeResult.stdout.trim() || "unknown error"}`,
     };
   }
 }

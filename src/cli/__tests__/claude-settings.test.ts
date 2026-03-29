@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeClaudeSettings, type ClaudeSettings } from "../claude-settings.js";
+import { mergeClaudeSettings, removeManagedClaudeHooks, type ClaudeSettings } from "../claude-settings.js";
 
 describe("mergeClaudeSettings", () => {
   it("adds managed hooks to an empty settings file", () => {
@@ -67,5 +67,60 @@ describe("mergeClaudeSettings", () => {
     expect(next.hooks?.PreToolUse?.flatMap((entry) => entry.hooks.map((hook) => hook.command))).toContain("node /custom/hook.js");
     expect(rerun.hooks?.PreToolUse?.flatMap((entry) => entry.hooks.map((hook) => hook.command)).filter((command) => command.includes("pre-tool-use.js"))).toHaveLength(1);
     expect(rerun.hooks?.UserPromptSubmit?.flatMap((entry) => entry.hooks.map((hook) => hook.command)).filter((command) => command.includes("user-prompt-submit.js"))).toHaveLength(1);
+  });
+});
+
+describe("removeManagedClaudeHooks", () => {
+  it("removes managed hooks while preserving unrelated hooks", () => {
+    const existing: ClaudeSettings = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: "Bash|Write|Edit|Read",
+            hooks: [
+              {
+                type: "command",
+                command: "\"/usr/bin/node\" \"/pkg/dist/hooks/pre-tool-use.js\"",
+                timeout: 5,
+              },
+            ],
+          },
+          {
+            matcher: "Read",
+            hooks: [
+              {
+                type: "command",
+                command: "node /custom/read-hook.js",
+                timeout: 5,
+              },
+            ],
+          },
+        ],
+        UserPromptSubmit: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "\"/usr/bin/node\" \"/pkg/dist/hooks/user-prompt-submit.js\"",
+                timeout: 5,
+              },
+            ],
+          },
+        ],
+      },
+      theme: "dark",
+    };
+
+    const next = removeManagedClaudeHooks(existing, {
+      preToolUse: "\"/usr/bin/node\" \"/pkg/dist/hooks/pre-tool-use.js\"",
+      userPrompt: "\"/usr/bin/node\" \"/pkg/dist/hooks/user-prompt-submit.js\"",
+    });
+
+    expect(next.theme).toBe("dark");
+    expect(next.hooks?.PreToolUse?.flatMap((entry) => entry.hooks.map((hook) => hook.command))).toEqual([
+      "node /custom/read-hook.js",
+    ]);
+    expect(next.hooks?.UserPromptSubmit).toBeUndefined();
   });
 });

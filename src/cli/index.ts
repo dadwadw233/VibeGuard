@@ -4,7 +4,7 @@ import { mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { getDashboardUrl, getInstallStatePath, getVibeGuardDir } from "../paths.js";
 import { ClaudeAdapter } from "./adapters/claude.js";
-import type { HostAdapter, InstallSummary } from "./adapters/types.js";
+import type { HostAdapter, InstallSummary, UninstallSummary } from "./adapters/types.js";
 import { pluralize } from "./command-utils.js";
 import { getRuntimeInstallMetadata } from "./health.js";
 import { readInstallState, updateInstallState, type HostTarget } from "./install-state.js";
@@ -24,6 +24,7 @@ VibeGuard - Security guard for Claude Code
 
 Usage:
   vibeguard install [--target claude]
+  vibeguard uninstall [--target claude]
   vibeguard doctor [--target claude]
   vibeguard launch claude -- [claude args...]
   vibeguard dashboard
@@ -94,7 +95,7 @@ async function runInstall(args: string[]): Promise<number> {
   let failed = 0;
   for (const target of targets) {
     const summary = adapters[target].install(runtime, state);
-    printInstallSummary(summary);
+    printActionSummary(summary);
 
     if (summary.ok) {
       updateInstallState(runtime.packageRoot, (current) => ({
@@ -114,7 +115,38 @@ async function runInstall(args: string[]): Promise<number> {
   return failed === 0 ? 0 : 1;
 }
 
-function printInstallSummary(summary: InstallSummary): void {
+async function runUninstall(args: string[]): Promise<number> {
+  const runtime = getRuntimePaths();
+  mkdirSync(getVibeGuardDir(), { recursive: true });
+  const state = readInstallState();
+  const targets = parseTarget(args);
+
+  let failed = 0;
+  for (const target of targets) {
+    const summary = adapters[target].uninstall(runtime, state);
+    printActionSummary(summary);
+
+    if (summary.ok) {
+      updateInstallState(runtime.packageRoot, (current) => {
+        const nextTargets = { ...current.targets };
+        delete nextTargets[target];
+        const hasTargets = Object.keys(nextTargets).length > 0;
+        return {
+          ...current,
+          runtime: hasTargets ? current.runtime : undefined,
+          targets: nextTargets,
+        };
+      });
+    } else {
+      failed += 1;
+    }
+  }
+
+  console.log(`Install state: ${getInstallStatePath()}`);
+  return failed === 0 ? 0 : 1;
+}
+
+function printActionSummary(summary: InstallSummary | UninstallSummary): void {
   const prefix = summary.ok ? "[ok]" : "[error]";
   console.log(`${prefix} ${summary.headline}`);
   for (const detail of summary.details) {
@@ -155,6 +187,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   switch (command) {
     case "install":
       process.exit(await runInstall(args));
+      return;
+    case "uninstall":
+      process.exit(await runUninstall(args));
       return;
     case "doctor":
       process.exit(await runDoctor(args));

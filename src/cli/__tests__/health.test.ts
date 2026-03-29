@@ -6,7 +6,7 @@ import type { RuntimePaths } from "../runtime.js";
 function createRuntimePaths(): RuntimePaths {
   return {
     packageRoot: "/tmp/vibeguard",
-    packageName: "@dadwadw/vibeguard",
+    packageName: "@embodot/vibeguard",
     packageVersion: "0.1.1",
     distDir: "/tmp/vibeguard/dist",
     cliEntry: "/tmp/vibeguard/dist/cli.js",

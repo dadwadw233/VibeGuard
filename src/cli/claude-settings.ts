@@ -51,20 +51,7 @@ export function mergeClaudeSettings(
   existing: ClaudeSettings,
   commands: ClaudeManagedCommands
 ): ClaudeSettings {
-  const preToolUseCommands = new Set(
-    [commands.preToolUse, commands.previousPreToolUse].filter(Boolean) as string[]
-  );
-  const userPromptCommands = new Set(
-    [commands.userPrompt, commands.previousUserPrompt].filter(Boolean) as string[]
-  );
-
-  const hooks = existing.hooks ?? {};
-  const preToolEntries = stripManagedHooks(hooks.PreToolUse, "dist/hooks/pre-tool-use.js", preToolUseCommands);
-  const userPromptEntries = stripManagedHooks(
-    hooks.UserPromptSubmit,
-    "dist/hooks/user-prompt-submit.js",
-    userPromptCommands
-  );
+  const { hooks, preToolEntries, userPromptEntries } = buildCleanHookEntries(existing, commands);
 
   preToolEntries.push({
     matcher: "Bash|Write|Edit|Read",
@@ -95,5 +82,59 @@ export function mergeClaudeSettings(
       PreToolUse: preToolEntries,
       UserPromptSubmit: userPromptEntries,
     },
+  };
+}
+
+function buildCleanHookEntries(existing: ClaudeSettings, commands: ClaudeManagedCommands): {
+  hooks: NonNullable<ClaudeSettings["hooks"]>;
+  preToolEntries: ClaudeHookMatcher[];
+  userPromptEntries: ClaudeHookMatcher[];
+} {
+  const preToolUseCommands = new Set(
+    [commands.preToolUse, commands.previousPreToolUse].filter(Boolean) as string[]
+  );
+  const userPromptCommands = new Set(
+    [commands.userPrompt, commands.previousUserPrompt].filter(Boolean) as string[]
+  );
+
+  const hooks = existing.hooks ?? {};
+  const preToolEntries = stripManagedHooks(hooks.PreToolUse, "dist/hooks/pre-tool-use.js", preToolUseCommands);
+  const userPromptEntries = stripManagedHooks(
+    hooks.UserPromptSubmit,
+    "dist/hooks/user-prompt-submit.js",
+    userPromptCommands
+  );
+
+  return { hooks, preToolEntries, userPromptEntries };
+}
+
+export function removeManagedClaudeHooks(
+  existing: ClaudeSettings,
+  commands: ClaudeManagedCommands
+): ClaudeSettings {
+  const { hooks, preToolEntries, userPromptEntries } = buildCleanHookEntries(existing, commands);
+
+  const nextHooks: NonNullable<ClaudeSettings["hooks"]> = { ...hooks };
+
+  if (preToolEntries.length > 0) {
+    nextHooks.PreToolUse = preToolEntries;
+  } else {
+    delete nextHooks.PreToolUse;
+  }
+
+  if (userPromptEntries.length > 0) {
+    nextHooks.UserPromptSubmit = userPromptEntries;
+  } else {
+    delete nextHooks.UserPromptSubmit;
+  }
+
+  if (Object.keys(nextHooks).length === 0) {
+    const { hooks: _hooks, ...rest } = existing;
+    return rest;
+  }
+
+  return {
+    ...existing,
+    hooks: nextHooks,
   };
 }

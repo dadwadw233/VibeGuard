@@ -15,6 +15,13 @@ export interface InstallSummary {
   state?: TargetInstallState;
 }
 
+export interface UninstallSummary {
+  target: HostTarget;
+  ok: boolean;
+  headline: string;
+  details: string[];
+}
+
 export interface DoctorSummary {
   target: HostTarget;
   ok: boolean;
@@ -24,6 +31,7 @@ export interface DoctorSummary {
 export interface HostAdapter {
   readonly target: HostTarget;
   install(runtime: RuntimePaths, state: InstallState): InstallSummary;
+  uninstall(runtime: RuntimePaths, state: InstallState): UninstallSummary;
   doctor(runtime: RuntimePaths, state: InstallState): DoctorSummary;
   launch(runtime: RuntimePaths, state: InstallState, args: string[]): Promise<number>;
 }
