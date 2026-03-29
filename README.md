@@ -11,13 +11,29 @@ Security guard for Claude Code. VibeGuard detects secrets, flags dangerous opera
 
 ## Install
 
+VibeGuard is not published to npm yet. Install it from a local checkout or directly from Git.
+
+### From a local checkout
+
 ```bash
-npm install -g vibeguard
+git clone git@github.com:dadwadw233/VibeGuard.git
+cd VibeGuard
+npm install
+npm run build
+npm install -g .
 vibeguard install
 vibeguard doctor
 ```
 
-`install` configures Claude using the installed package location. Users do not need to keep a cloned copy of this repository on disk.
+### From Git
+
+```bash
+npm install -g git+ssh://git@github.com/dadwadw233/VibeGuard.git#codex/claude-only-cli
+vibeguard install
+vibeguard doctor
+```
+
+`install` configures Claude using the installed package location.
 
 ### Claude
 
