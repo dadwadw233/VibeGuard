@@ -3,8 +3,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { scanContent, scanCommand, scanFilePath } from "../scanner/index.js";
-import { getEvents, getStats } from "../store/index.js";
+import {
+  renderScanCommandResult,
+  renderScanFileResult,
+  renderScanTextResult,
+  renderSecurityEvents,
+  renderSecurityStats,
+} from "./tools.js";
 
 const server = new McpServer({
   name: "vibeguard",
@@ -19,14 +24,11 @@ server.tool(
     context: z.string().optional().describe("File path or context description"),
   },
   async ({ text, context }) => {
-    const result = scanContent(text, context);
     return {
       content: [
         {
           type: "text" as const,
-          text: result.findings.length === 0
-            ? "No secrets detected."
-            : `Found ${result.findings.length} issue(s):\n${result.findings.map((f) => `- [${f.severity.toUpperCase()}] ${f.description}: ${f.match}`).join("\n")}`,
+          text: renderScanTextResult(text, context),
         },
       ],
     };
@@ -40,14 +42,11 @@ server.tool(
     file_path: z.string().describe("File path to check"),
   },
   async ({ file_path }) => {
-    const result = scanFilePath(file_path);
     return {
       content: [
         {
           type: "text" as const,
-          text: result.findings.length === 0
-            ? "File path appears safe."
-            : `Sensitive file detected:\n${result.findings.map((f) => `- [${f.severity.toUpperCase()}] ${f.description}`).join("\n")}`,
+          text: renderScanFileResult(file_path),
         },
       ],
     };
@@ -61,14 +60,11 @@ server.tool(
     command: z.string().describe("Bash command to analyze"),
   },
   async ({ command }) => {
-    const result = scanCommand(command);
     return {
       content: [
         {
           type: "text" as const,
-          text: result.findings.length === 0
-            ? "Command appears safe."
-            : `Dangerous command detected:\n${result.findings.map((f) => `- [${f.severity.toUpperCase()}] ${f.description}`).join("\n")}`,
+          text: renderScanCommandResult(command),
         },
       ],
     };
@@ -83,14 +79,11 @@ server.tool(
     category: z.enum(["secret", "sensitive-file", "dangerous-command"]).optional().describe("Filter by category"),
   },
   async ({ limit, category }) => {
-    const events = getEvents({ limit, category });
     return {
       content: [
         {
           type: "text" as const,
-          text: events.length === 0
-            ? "No security events recorded."
-            : JSON.stringify(events, null, 2),
+          text: renderSecurityEvents(limit, category),
         },
       ],
     };
@@ -102,12 +95,11 @@ server.tool(
   "Get aggregate security statistics from VibeGuard",
   {},
   async () => {
-    const stats = getStats();
     return {
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(stats, null, 2),
+          text: renderSecurityStats(),
         },
       ],
     };

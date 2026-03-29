@@ -1,132 +1,119 @@
 # VibeGuard
 
-Security guard for AI coding agents. Detects secrets, blocks dangerous operations, and provides a security dashboard.
+Security guard for Claude Code. VibeGuard detects secrets, flags dangerous operations, records security events locally, and exposes a dashboard plus MCP tools for Claude workflows.
 
-## Features
+## Highlights
 
-- **Secret Detection** - Detects API keys, tokens, passwords, private keys in code (~30 rules covering AWS, GitHub, Anthropic, OpenAI, Stripe, Slack, Google, and more)
-- **User Prompt Protection** - Scans user chat messages for secrets before they are sent to the AI, blocking accidental credential sharing
-- **Sensitive File Protection** - Warns when agents read `.env`, SSH keys, cloud credentials, certificates
-- **Dangerous Command Prevention** - Blocks `rm -rf /`, `DROP TABLE`, force push to main, and other destructive operations
-- **Security Dashboard** - Web UI to view event history, manage rules, and add custom patterns
-- **MCP Server** - On-demand scanning tools for coding agents
+- Secret detection for common API keys, tokens, passwords, private keys, and connection strings
+- Claude real-time protection for `Bash`, `Write`, `Edit`, `Read`, and `UserPromptSubmit`
+- Local SQLite event log with a lightweight dashboard
+- Managed installation flow that does not require cloning the repo
 
-## Quick Start
+## Install
+
+VibeGuard is not published to npm yet. Install it from a local checkout or directly from Git.
+
+### From a local checkout
 
 ```bash
-# Install dependencies
+git clone git@github.com:dadwadw233/VibeGuard.git
+cd VibeGuard
 npm install
-
-# Build
 npm run build
-
-# Run tests
-npm test
+npm install -g .
+vibeguard install
+vibeguard doctor
 ```
 
-## Integration with Claude Code
-
-### As a Plugin
+### From Git
 
 ```bash
-claude --plugin-dir /path/to/VibeGuard
+npm install -g git+ssh://git@github.com/dadwadw233/VibeGuard.git#codex/claude-only-cli
+vibeguard install
+vibeguard doctor
 ```
 
-### Manual Hook Setup
+`install` configures Claude using the installed package location.
 
-Add to `~/.claude/settings.json`:
+### Claude
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash|Write|Edit|Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node /path/to/VibeGuard/dist/hooks/pre-tool-use.js",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node /path/to/VibeGuard/dist/hooks/user-prompt-submit.js",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
-}
+```bash
+vibeguard install --target claude
+vibeguard launch claude -- --help
 ```
 
-### MCP Server
+Claude integration includes:
 
-Add to `.mcp.json` or Claude Code settings:
+- `PreToolUse` hooks for `Bash|Write|Edit|Read`
+- `UserPromptSubmit` secret scanning
+- optional MCP registration when the `claude` CLI is available
 
-```json
-{
-  "mcpServers": {
-    "vibeguard": {
-      "command": "node",
-      "args": ["/path/to/VibeGuard/dist/mcp/server.js"],
-      "type": "stdio"
-    }
-  }
-}
+## Commands
+
+```bash
+vibeguard install [--target claude]
+vibeguard doctor [--target claude]
+vibeguard launch claude -- <claude args...>
+vibeguard dashboard
+vibeguard mcp
 ```
 
 ## Dashboard
 
 ```bash
-npm run dashboard
-# Open http://localhost:7847
+vibeguard dashboard
 ```
 
+Open [http://localhost:7847](http://localhost:7847).
+
 The dashboard provides:
-- **Overview** - Event statistics and daily trend charts
-- **Events** - Filterable list of all security events
-- **Rules** - Enable/disable rules and add custom patterns
+
+- overview statistics and daily trends
+- filterable event history
+- rule browsing and custom pattern management
 
 ## How It Works
 
-VibeGuard integrates via Claude Code's hook system at two levels:
+1. `vibeguard install` updates `~/.claude/settings.json` idempotently.
+2. Claude invokes the VibeGuard hook scripts before matching operations run.
+3. High-severity findings are blocked. Medium and low findings request confirmation or inject warnings.
+4. Findings are recorded in `~/.vibeguard/events.db`.
 
-### User Prompt Protection (`UserPromptSubmit`)
-When a user submits a chat message, VibeGuard scans it for secrets **before** it reaches the AI:
-- **Critical/High** severity: message is **blocked** and erased from context
-- **Medium/Low** severity: a warning is injected as context for the AI
+## Migration Note
 
-### Tool Operation Protection (`PreToolUse`)
-Before any Write, Edit, Read, or Bash operation executes:
-1. The hook receives the operation details via stdin (JSON)
-2. The scanner engine checks against detection rules
-3. **Critical/High** severity findings: operation is **blocked** (denied)
-4. **Medium/Low** severity findings: user is **asked** to confirm
+Codex support has been removed from VibeGuard. If you previously registered the MCP server with Codex, remove it with:
 
-All findings from both hooks are logged to a local SQLite database (`~/.vibeguard/events.db`).
+```bash
+codex mcp remove vibeguard
+```
 
-## Detection Rules
+## Development
 
-### Secrets (~30 rules)
-AWS keys, GitHub PATs, Anthropic/OpenAI API keys, Stripe keys, Slack tokens, Google API keys, SendGrid keys, NPM tokens, private keys, database connection strings, JWTs, and generic patterns.
+```bash
+npm install
+npm run build
+npm test
+```
 
-### Sensitive Files
-`.env`, `.ssh/`, `.aws/credentials`, `.docker/config.json`, `.kube/config`, `*.pem`, `*.key`, and files with `credential`/`secret`/`password` in the name.
+### Repo-local plugin workflow
 
-### Dangerous Commands
-`rm -rf /`, `DROP TABLE/DATABASE`, `git push --force` to main, `git reset --hard`, `curl | sh`, `chmod 777`, `dd`, `mkfs`, `shutdown`, and more.
+Repo-local plugin loading is still available for development and debugging, but it is no longer the recommended end-user install path.
 
-## Custom Rules
+```bash
+claude --plugin-dir /path/to/VibeGuard
+```
 
-Add custom rules via the dashboard or the MCP `scan_text` tool. Rules use regex patterns and support severity levels (critical, high, medium, low).
+You can also wire the built hook scripts manually by pointing Claude settings at:
+
+- `dist/hooks/pre-tool-use.js`
+- `dist/hooks/user-prompt-submit.js`
+- `dist/mcp/server.js`
+
+## Event Storage
+
+All findings are logged to a local SQLite database at `~/.vibeguard/events.db`.
+
+Managed installation metadata is stored at `~/.vibeguard/install-state.json`.
 
 ## License
 
