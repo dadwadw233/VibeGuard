@@ -31,6 +31,14 @@
     "claude-code",
     "mcp"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dadwadw233/VibeGuard"
+  },
+  "homepage": "https://github.com/dadwadw233/VibeGuard#readme",
+  "bugs": {
+    "url": "https://github.com/dadwadw233/VibeGuard/issues"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
