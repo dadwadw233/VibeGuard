@@ -232,3 +232,38 @@ describe("scanCommand - Dangerous Command Detection", () => {
     expect(result.blocked).toBe(false);
   });
 });
+
+describe("runtime rule injection", () => {
+  it("uses injected secret rules instead of built-in defaults", () => {
+    const customRules = [
+      {
+        id: "custom-secret",
+        description: "Custom secret",
+        regex: /INTERNAL_[A-Z0-9]{12}/,
+        severity: "high" as const,
+      },
+    ];
+
+    const awsResult = scanContent("aws_key = AKIAIOSFODNN7EXAMPLE", undefined, customRules);
+    const customResult = scanContent("INTERNAL_ABCDEF123456", undefined, customRules);
+
+    expect(awsResult.findings.length).toBe(0);
+    expect(customResult.findings.some((f) => f.rule_id === "custom-secret")).toBe(true);
+  });
+
+  it("uses injected command rule severity for block decision", () => {
+    const customRules = [
+      {
+        id: "custom-dangerous",
+        description: "Custom dangerous command",
+        pattern: /danger/,
+        severity: "low" as const,
+      },
+    ];
+
+    const result = scanCommand("run-danger-now", customRules);
+    expect(result.findings.length).toBe(1);
+    expect(result.findings[0].severity).toBe("low");
+    expect(result.blocked).toBe(false);
+  });
+});

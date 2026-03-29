@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RuntimeRules } from "../../config/index.js";
 import type { HookInput, UserPromptInput } from "../../scanner/types.js";
 import { handlePreToolUse, handleUserPromptSubmit } from "../shared.js";
 
@@ -58,6 +59,50 @@ describe("handlePreToolUse", () => {
 
     expect(handlePreToolUse(input)).toBeUndefined();
   });
+
+  it("respects runtime severity overrides for command findings", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "rm -rf /",
+      },
+    };
+
+    const runtimeRules: RuntimeRules = {
+      secretRules: [],
+      fileRules: [],
+      commandRules: [
+        {
+          id: "rm-rf-root",
+          description: "Recursive force delete of root directory",
+          pattern: /rm\s+-rf\s+\//,
+          severity: "medium",
+        },
+      ],
+    };
+
+    const output = handlePreToolUse(input, runtimeRules);
+    expect(output?.hookSpecificOutput?.permissionDecision).toBe("ask");
+  });
+
+  it("respects runtime disabled rules by allowing operations", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "rm -rf /",
+      },
+    };
+
+    const runtimeRules: RuntimeRules = {
+      secretRules: [],
+      fileRules: [],
+      commandRules: [],
+    };
+
+    expect(handlePreToolUse(input, runtimeRules)).toBeUndefined();
+  });
 });
 
 describe("handleUserPromptSubmit", () => {
@@ -97,5 +142,33 @@ describe("handleUserPromptSubmit", () => {
     };
 
     expect(handleUserPromptSubmit(input)).toBeUndefined();
+  });
+
+  it("blocks prompts matched by runtime custom secret rules", () => {
+    const input: UserPromptInput = {
+      hook_event_name: "UserPromptSubmit",
+      prompt: "INTERNAL_ABCDEF123456",
+    };
+
+    const runtimeRules: RuntimeRules = {
+      secretRules: [
+        {
+          id: "custom-internal-secret",
+          description: "Internal token",
+          regex: /INTERNAL_[A-Z0-9]{12}/,
+          severity: "high",
+        },
+      ],
+      fileRules: [],
+      commandRules: [],
+    };
+
+    const output = handleUserPromptSubmit(input, runtimeRules);
+    expect(output).toEqual(
+      expect.objectContaining({
+        decision: "block",
+        reason: expect.stringContaining("Internal token"),
+      })
+    );
   });
 });

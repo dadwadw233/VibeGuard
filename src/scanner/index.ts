@@ -1,4 +1,4 @@
-import type { ScanResult, Finding, SecretRule } from "./types.js";
+import type { ScanResult, Finding, SecretRule, FileRule, CommandRule } from "./types.js";
 import { SECRET_RULES } from "./secret-patterns.js";
 import { SENSITIVE_FILE_RULES } from "./sensitive-files.js";
 import { DANGEROUS_COMMAND_RULES } from "./dangerous-commands.js";
@@ -30,10 +30,19 @@ function hasKeyword(text: string, keywords?: string[]): boolean {
   return keywords.some((kw) => lower.includes(kw.toLowerCase()));
 }
 
+function withGlobalFlag(regex: RegExp): RegExp {
+  const flags = regex.flags.includes("g") ? regex.flags : `${regex.flags}g`;
+  return new RegExp(regex.source, flags);
+}
+
 /**
  * Scan text content for secrets (API keys, tokens, passwords, etc.)
  */
-export function scanContent(content: string, filePath?: string): ScanResult {
+export function scanContent(
+  content: string,
+  filePath?: string,
+  rules: readonly SecretRule[] = SECRET_RULES
+): ScanResult {
   const findings: Finding[] = [];
 
   // Skip binary or very large content
@@ -41,12 +50,12 @@ export function scanContent(content: string, filePath?: string): ScanResult {
     return { blocked: false, findings: [] };
   }
 
-  for (const rule of SECRET_RULES) {
+  for (const rule of rules) {
     // Fast keyword pre-filter
     if (!hasKeyword(content, rule.keywords)) continue;
 
     // Run regex
-    const matches = content.matchAll(new RegExp(rule.regex, "g"));
+    const matches = content.matchAll(withGlobalFlag(rule.regex));
     for (const m of matches) {
       const matchStr = m[0];
 
@@ -77,13 +86,13 @@ export function scanContent(content: string, filePath?: string): ScanResult {
 /**
  * Check if a file path points to a sensitive file.
  */
-export function scanFilePath(filePath: string): ScanResult {
+export function scanFilePath(filePath: string, rules: readonly FileRule[] = SENSITIVE_FILE_RULES): ScanResult {
   const findings: Finding[] = [];
 
   // Normalize path separators
   const normalized = filePath.replace(/\\/g, "/");
 
-  for (const rule of SENSITIVE_FILE_RULES) {
+  for (const rule of rules) {
     if (rule.pattern.test(normalized)) {
       findings.push({
         rule_id: rule.id,
@@ -103,7 +112,7 @@ export function scanFilePath(filePath: string): ScanResult {
 /**
  * Check if a bash command is dangerous.
  */
-export function scanCommand(command: string): ScanResult {
+export function scanCommand(command: string, rules: readonly CommandRule[] = DANGEROUS_COMMAND_RULES): ScanResult {
   const findings: Finding[] = [];
 
   // Skip empty commands
@@ -111,7 +120,7 @@ export function scanCommand(command: string): ScanResult {
     return { blocked: false, findings: [] };
   }
 
-  for (const rule of DANGEROUS_COMMAND_RULES) {
+  for (const rule of rules) {
     if (rule.pattern.test(command)) {
       findings.push({
         rule_id: rule.id,

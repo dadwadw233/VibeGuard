@@ -1,32 +1,35 @@
+import { getRuntimeRules, type RuntimeRules } from "../config/index.js";
 import { scanContent, scanCommand, scanFilePath } from "../scanner/index.js";
 import { logFindings } from "../store/index.js";
 import type { HookInput, HookOutput, ScanResult, UserPromptInput, UserPromptOutput } from "../scanner/types.js";
 
-function getPreToolScanResult(input: HookInput): ScanResult | null {
+function getPreToolScanResult(input: HookInput, runtimeRules: RuntimeRules): ScanResult | null {
   const { tool_name, tool_input } = input;
 
   switch (tool_name) {
     case "Bash":
-      return scanCommand((tool_input.command as string) ?? "");
+      return scanCommand((tool_input.command as string) ?? "", runtimeRules.commandRules);
     case "Write":
       return scanContent(
         (tool_input.content as string) ?? "",
-        tool_input.file_path as string | undefined
+        tool_input.file_path as string | undefined,
+        runtimeRules.secretRules
       );
     case "Edit":
       return scanContent(
         (tool_input.new_string as string) ?? "",
-        tool_input.file_path as string | undefined
+        tool_input.file_path as string | undefined,
+        runtimeRules.secretRules
       );
     case "Read":
-      return scanFilePath((tool_input.file_path as string) ?? "");
+      return scanFilePath((tool_input.file_path as string) ?? "", runtimeRules.fileRules);
     default:
       return null;
   }
 }
 
-export function handlePreToolUse(input: HookInput): HookOutput | undefined {
-  const result = getPreToolScanResult(input);
+export function handlePreToolUse(input: HookInput, runtimeRules: RuntimeRules = getRuntimeRules()): HookOutput | undefined {
+  const result = getPreToolScanResult(input, runtimeRules);
   if (!result) return undefined;
 
   if (result.findings.length > 0) {
@@ -52,10 +55,13 @@ export function handlePreToolUse(input: HookInput): HookOutput | undefined {
   };
 }
 
-export function handleUserPromptSubmit(input: UserPromptInput): UserPromptOutput | { additionalContext: string } | undefined {
+export function handleUserPromptSubmit(
+  input: UserPromptInput,
+  runtimeRules: RuntimeRules = getRuntimeRules()
+): UserPromptOutput | { additionalContext: string } | undefined {
   if (!input.prompt || input.prompt.trim().length === 0) return undefined;
 
-  const result = scanContent(input.prompt);
+  const result = scanContent(input.prompt, undefined, runtimeRules.secretRules);
 
   if (result.findings.length > 0) {
     try {
