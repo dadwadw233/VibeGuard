@@ -15,6 +15,13 @@ import {
 import { SECRET_RULES } from "../scanner/secret-patterns.js";
 import { SENSITIVE_FILE_RULES } from "../scanner/sensitive-files.js";
 import { DANGEROUS_COMMAND_RULES } from "../scanner/dangerous-commands.js";
+import {
+  getBuiltinOverride,
+  getCustomOverride,
+  getOverrideStorageKey,
+  isBuiltinRuleId,
+  toOverrideMap,
+} from "../config/override-keys.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -43,7 +50,7 @@ app.get("/api/stats", (_req, res) => {
 
 app.get("/api/rules", (_req, res) => {
   const overrides = getConfigOverrides();
-  const overrideMap = new Map(overrides.map((o) => [o.rule_id, o]));
+  const overrideMap = toOverrideMap(overrides);
   const customPatterns = getCustomPatterns();
 
   const allRules = [
@@ -51,32 +58,32 @@ app.get("/api/rules", (_req, res) => {
       id: r.id,
       description: r.description,
       category: "secret" as const,
-      severity: overrideMap.get(r.id)?.severity ?? r.severity,
-      enabled: overrideMap.get(r.id)?.enabled ?? true,
+      severity: getBuiltinOverride(overrideMap, r.id)?.severity ?? r.severity,
+      enabled: getBuiltinOverride(overrideMap, r.id)?.enabled ?? true,
       builtin: true,
     })),
     ...SENSITIVE_FILE_RULES.map((r) => ({
       id: r.id,
       description: r.description,
       category: "sensitive-file" as const,
-      severity: overrideMap.get(r.id)?.severity ?? r.severity,
-      enabled: overrideMap.get(r.id)?.enabled ?? true,
+      severity: getBuiltinOverride(overrideMap, r.id)?.severity ?? r.severity,
+      enabled: getBuiltinOverride(overrideMap, r.id)?.enabled ?? true,
       builtin: true,
     })),
     ...DANGEROUS_COMMAND_RULES.map((r) => ({
       id: r.id,
       description: r.description,
       category: "dangerous-command" as const,
-      severity: overrideMap.get(r.id)?.severity ?? r.severity,
-      enabled: overrideMap.get(r.id)?.enabled ?? true,
+      severity: getBuiltinOverride(overrideMap, r.id)?.severity ?? r.severity,
+      enabled: getBuiltinOverride(overrideMap, r.id)?.enabled ?? true,
       builtin: true,
     })),
     ...customPatterns.map((r) => ({
       id: r.id,
       description: r.description,
       category: r.category,
-      severity: overrideMap.get(r.id)?.severity ?? r.severity,
-      enabled: overrideMap.get(r.id)?.enabled ?? r.enabled,
+      severity: getCustomOverride(overrideMap, r.id)?.severity ?? r.severity,
+      enabled: getCustomOverride(overrideMap, r.id)?.enabled ?? r.enabled,
       builtin: false,
     })),
   ];
@@ -86,9 +93,10 @@ app.get("/api/rules", (_req, res) => {
 
 app.put("/api/rules/:ruleId", (req, res) => {
   const { ruleId } = req.params;
-  const { enabled, severity } = req.body;
+  const { enabled, severity, builtin } = req.body;
+  const isBuiltin = typeof builtin === "boolean" ? builtin : isBuiltinRuleId(ruleId);
 
-  setConfigOverride(ruleId, { enabled, severity });
+  setConfigOverride(getOverrideStorageKey(ruleId, isBuiltin), { enabled, severity });
   res.json({ ok: true });
 });
 
@@ -97,6 +105,11 @@ app.post("/api/rules/custom", (req, res) => {
 
   if (!id || !category || !description || !regex) {
     res.status(400).json({ error: "Missing required fields: id, category, description, regex" });
+    return;
+  }
+
+  if (isBuiltinRuleId(id)) {
+    res.status(400).json({ error: `Rule ID '${id}' is reserved for built-in rules. Choose a unique custom ID.` });
     return;
   }
 

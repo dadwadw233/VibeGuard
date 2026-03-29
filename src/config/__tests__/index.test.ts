@@ -19,9 +19,9 @@ describe("runtime rule resolution", () => {
   it("applies overrides and custom patterns across scanner categories", () => {
     const rules = buildRuntimeRules(
       [
-        { rule_id: "aws-access-key", enabled: false },
-        { rule_id: "git-reset-hard", enabled: true, severity: "critical" },
-        { rule_id: "custom-secret", enabled: true, severity: "medium" },
+        { rule_id: "builtin:aws-access-key", enabled: false },
+        { rule_id: "builtin:git-reset-hard", enabled: true, severity: "critical" },
+        { rule_id: "custom:custom-secret", enabled: true, severity: "medium" },
       ],
       [
         {
@@ -56,6 +56,29 @@ describe("runtime rule resolution", () => {
     expect(rules.secretRules.find((rule) => rule.id === "custom-secret")?.severity).toBe("medium");
     expect(rules.fileRules.some((rule) => rule.id === "custom-sensitive-file")).toBe(true);
     expect(rules.commandRules.some((rule) => rule.id === "custom-dangerous-command")).toBe(true);
+  });
+
+  it("does not apply builtin overrides to colliding custom rule IDs", () => {
+    const rules = buildRuntimeRules(
+      [{ rule_id: "aws-access-key", enabled: false }],
+      [
+        {
+          id: "aws-access-key",
+          category: "secret",
+          description: "Custom rule colliding with builtin id",
+          regex: "INTERNAL_[A-Z0-9]{12}",
+          severity: "high",
+          enabled: true,
+        },
+      ]
+    );
+
+    expect(rules.secretRules.some((rule) => rule.id === "aws-access-key" && rule.description === "AWS Access Key ID")).toBe(false);
+    expect(
+      rules.secretRules.some(
+        (rule) => rule.id === "aws-access-key" && rule.description === "Custom rule colliding with builtin id"
+      )
+    ).toBe(true);
   });
 
   it("falls back to default rules when store access fails", () => {

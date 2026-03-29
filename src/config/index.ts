@@ -3,6 +3,12 @@ import { SECRET_RULES } from "../scanner/secret-patterns.js";
 import { SENSITIVE_FILE_RULES } from "../scanner/sensitive-files.js";
 import { DANGEROUS_COMMAND_RULES } from "../scanner/dangerous-commands.js";
 import { getConfigOverrides, getCustomPatterns } from "../store/index.js";
+import {
+  getBuiltinOverride,
+  getCustomOverride,
+  toOverrideMap,
+  type RuleOverride,
+} from "./override-keys.js";
 
 export interface RuntimeRules {
   secretRules: SecretRule[];
@@ -34,12 +40,11 @@ function compilePattern(pattern: string): RegExp | null {
  */
 export function applyOverrides<T extends { id: string; severity: Severity }>(
   rules: readonly T[],
-  overrides: Array<{ rule_id: string; enabled: boolean; severity?: string }>
+  overrides: Map<string, RuleOverride>,
+  resolveOverride: (overrides: Map<string, RuleOverride>, ruleId: string) => RuleOverride | undefined
 ): T[] {
-  const overrideMap = new Map(overrides.map((override) => [override.rule_id, override]));
-
   return rules.flatMap((rule) => {
-    const override = overrideMap.get(rule.id);
+    const override = resolveOverride(overrides, rule.id);
     if (override && !override.enabled) {
       return [];
     }
@@ -61,7 +66,7 @@ function getCustomRuntimeRules(
     severity: string;
     enabled: boolean;
   }>,
-  overrides: Map<string, { rule_id: string; enabled: boolean; severity?: string }>
+  overrides: Map<string, RuleOverride>
 ): RuntimeRules {
   const secretRules: SecretRule[] = [];
   const fileRules: FileRule[] = [];
@@ -72,7 +77,7 @@ function getCustomRuntimeRules(
       continue;
     }
 
-    const override = overrides.get(pattern.id);
+    const override = getCustomOverride(overrides, pattern.id);
     const enabled = override?.enabled ?? pattern.enabled;
     if (!enabled) {
       continue;
@@ -128,7 +133,7 @@ export function getDefaultRuntimeRules(): RuntimeRules {
 }
 
 export function buildRuntimeRules(
-  overrides: Array<{ rule_id: string; enabled: boolean; severity?: string }>,
+  overrides: RuleOverride[],
   customPatterns: Array<{
     id: string;
     category: string;
@@ -138,13 +143,13 @@ export function buildRuntimeRules(
     enabled: boolean;
   }>
 ): RuntimeRules {
-  const overrideMap = new Map(overrides.map((override) => [override.rule_id, override]));
+  const overrideMap = toOverrideMap(overrides);
   const customRules = getCustomRuntimeRules(customPatterns, overrideMap);
 
   return {
-    secretRules: [...applyOverrides(SECRET_RULES, overrides), ...customRules.secretRules],
-    fileRules: [...applyOverrides(SENSITIVE_FILE_RULES, overrides), ...customRules.fileRules],
-    commandRules: [...applyOverrides(DANGEROUS_COMMAND_RULES, overrides), ...customRules.commandRules],
+    secretRules: [...applyOverrides(SECRET_RULES, overrideMap, getBuiltinOverride), ...customRules.secretRules],
+    fileRules: [...applyOverrides(SENSITIVE_FILE_RULES, overrideMap, getBuiltinOverride), ...customRules.fileRules],
+    commandRules: [...applyOverrides(DANGEROUS_COMMAND_RULES, overrideMap, getBuiltinOverride), ...customRules.commandRules],
   };
 }
 

@@ -246,7 +246,7 @@ function renderRules(rules) {
       return `
         <div class="rule-item">
           <label class="rule-toggle">
-            <input type="checkbox" ${rule.enabled ? "checked" : ""} data-rule-id="${escapeHtml(rule.id)}">
+            <input type="checkbox" ${rule.enabled ? "checked" : ""} data-rule-id="${escapeHtml(rule.id)}" data-rule-builtin="${rule.builtin ? "true" : "false"}">
             <span class="slider"></span>
           </label>
           <div class="rule-info">
@@ -265,11 +265,12 @@ function renderRules(rules) {
   container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
     checkbox.addEventListener("change", async (event) => {
       const ruleId = event.target.dataset.ruleId;
+      const builtin = event.target.dataset.ruleBuiltin === "true";
       try {
         await fetch(`${API}/api/rules/${ruleId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: event.target.checked }),
+          body: JSON.stringify({ enabled: event.target.checked, builtin }),
         });
       } catch (err) {
         console.error("Failed to update rule:", err);
