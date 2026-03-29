@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RuntimeRules } from "../../config/index.js";
 import {
   renderScanCommandResult,
   renderScanFileResult,
@@ -29,5 +30,34 @@ describe("MCP tool renderers", () => {
     expect(renderScanTextResult("const ok = true;")).toBe("No secrets detected.");
     expect(renderScanFileResult("/tmp/project/src/index.ts")).toBe("File path appears safe.");
     expect(renderScanCommandResult("npm install express")).toBe("Command appears safe.");
+  });
+
+  it("respects runtime disabled command rules", () => {
+    const runtimeRules: RuntimeRules = {
+      secretRules: [],
+      fileRules: [],
+      commandRules: [],
+    };
+
+    expect(renderScanCommandResult("git reset --hard HEAD~1", runtimeRules)).toBe("Command appears safe.");
+  });
+
+  it("detects runtime custom secret rules", () => {
+    const runtimeRules: RuntimeRules = {
+      secretRules: [
+        {
+          id: "custom-internal-token",
+          description: "Internal token",
+          regex: /INTERNAL_[A-Z0-9]{12}/,
+          severity: "high",
+        },
+      ],
+      fileRules: [],
+      commandRules: [],
+    };
+
+    const output = renderScanTextResult("INTERNAL_ABCDEF123456", undefined, runtimeRules);
+    expect(output).toContain("Found 1 issue");
+    expect(output).toContain("Internal token");
   });
 });
