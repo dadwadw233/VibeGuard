@@ -167,6 +167,8 @@ export class ClaudeAdapter implements HostAdapter {
     const addResult = runCommand("claude", [
       "mcp",
       "add",
+      "--scope",
+      "user",
       "vibeguard",
       "--",
       runtime.nodeBinary,

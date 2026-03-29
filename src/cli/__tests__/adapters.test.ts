@@ -68,7 +68,7 @@ if [ "$1" = "mcp" ] && [ "$2" = "get" ] && [ "$3" = "vibeguard" ]; then
   [ -f "$STATE" ] && exit 0
   exit 1
 fi
-if [ "$1" = "mcp" ] && [ "$2" = "add" ] && [ "$3" = "vibeguard" ]; then
+if [ "$1" = "mcp" ] && [ "$2" = "add" ]; then
   printf '%s\\n' "$@" > "$STATE"
   exit 0
 fi
@@ -82,6 +82,9 @@ exit 0
     expect(summary.ok).toBe(true);
     expect(summary.state?.commands?.preToolUse).toContain("pre-tool-use.js");
     expect(readFileSync(join(tempDir, "claude-home", "settings.json"), "utf-8")).toContain("Bash|Write|Edit|Read");
+    const mcpArgs = readFileSync(claudeLog, "utf-8");
+    expect(mcpArgs).toContain("--scope");
+    expect(mcpArgs).toContain("user");
 
     const doctor = adapter.doctor(runtime, {
       version: 1,
@@ -91,6 +94,6 @@ exit 0
     } as InstallState);
 
     expect(doctor.ok).toBe(true);
-    expect(readFileSync(claudeLog, "utf-8")).toContain("vibeguard");
+    expect(mcpArgs).toContain("vibeguard");
   });
 });

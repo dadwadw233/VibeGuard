@@ -1,5 +1,5 @@
 import { accessSync, constants, existsSync } from "fs";
-import { delimiter, join } from "path";
+import { delimiter, extname, join } from "path";
 import { spawn, spawnSync } from "child_process";
 
 export interface CommandStatus {
@@ -18,28 +18,57 @@ export interface LaunchOptions {
   stdin?: string;
 }
 
+export interface FindExecutableOptions {
+  pathValue?: string;
+  platform?: NodeJS.Platform;
+  pathExt?: string;
+}
+
 export function shellQuote(value: string): string {
   return `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
 }
 
-export function findExecutable(command: string): string | null {
-  const pathValue = process.env.PATH ?? "";
+export function findExecutable(command: string, options: FindExecutableOptions = {}): string | null {
+  const platform = options.platform ?? process.platform;
+  const pathValue = options.pathValue ?? process.env.PATH ?? "";
+  const pathDelimiter = platform === "win32" ? ";" : delimiter;
+  const candidates = getExecutableCandidates(
+    command,
+    platform,
+    options.pathExt ?? process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD"
+  );
 
-  for (const dir of pathValue.split(delimiter)) {
+  for (const dir of pathValue.split(pathDelimiter)) {
     if (!dir) continue;
 
-    const fullPath = join(dir, command);
-    if (!existsSync(fullPath)) continue;
+    for (const candidate of candidates) {
+      const fullPath = join(dir, candidate);
+      if (!existsSync(fullPath)) continue;
 
-    try {
-      accessSync(fullPath, constants.X_OK);
-      return fullPath;
-    } catch {
-      // Keep searching.
+      try {
+        accessSync(fullPath, constants.X_OK);
+        return fullPath;
+      } catch {
+        // Keep searching.
+      }
     }
   }
 
   return null;
+}
+
+function getExecutableCandidates(command: string, platform: NodeJS.Platform, pathExt: string): string[] {
+  if (platform !== "win32") return [command];
+  if (extname(command)) return [command];
+
+  const extensions = pathExt
+    .split(";")
+    .map((ext) => ext.trim())
+    .filter(Boolean)
+    .map((ext) => ext.startsWith(".") ? ext : `.${ext}`);
+
+  const candidates = [command, ...extensions.map((ext) => `${command}${ext}`)];
+  return [...new Set(candidates)];
 }
 
 export function runCommand(command: string, args: string[]): CommandResult {
