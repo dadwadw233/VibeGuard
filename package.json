@@ -1,5 +1,5 @@
 {
-  "name": "@dadwadw/vibeguard",
+  "name": "@embodot/vibeguard",
   "version": "0.1.0",
   "description": "Security guard for AI coding agents - detects secrets, blocks dangerous operations",
   "type": "module",

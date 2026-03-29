@@ -14,7 +14,7 @@ Security guard for Claude Code. VibeGuard detects secrets, flags dangerous opera
 Preferred install path:
 
 ```bash
-npm install -g @dadwadw/vibeguard
+npm install -g @embodot/vibeguard
 vibeguard install
 vibeguard doctor
 ```
@@ -78,7 +78,7 @@ vibeguard doctor
 If you switched Node versions (for example via `nvm`), reinstall the global package in the active Node version:
 
 ```bash
-npm install -g @dadwadw/vibeguard
+npm install -g @embodot/vibeguard
 vibeguard install
 vibeguard doctor
 ```
