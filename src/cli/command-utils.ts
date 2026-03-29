@@ -72,9 +72,11 @@ function getExecutableCandidates(command: string, platform: NodeJS.Platform, pat
 }
 
 export function runCommand(command: string, args: string[]): CommandResult {
+  const useShell = shouldUseShellForCommand(command);
   const result = spawnSync(command, args, {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "pipe"],
+    shell: useShell,
   });
 
   return {
@@ -86,8 +88,10 @@ export function runCommand(command: string, args: string[]): CommandResult {
 }
 
 export async function launchCommand(command: string, args: string[], options: LaunchOptions = {}): Promise<number> {
+  const useShell = shouldUseShellForCommand(command);
   const child = spawn(command, args, {
     stdio: [options.stdin !== undefined ? "pipe" : "inherit", "inherit", "inherit"],
+    shell: useShell,
   });
 
   if (options.stdin !== undefined) {
@@ -110,4 +114,12 @@ export async function launchCommand(command: string, args: string[], options: La
 
 export function pluralize(count: number, singular: string, plural: string): string {
   return count === 1 ? singular : plural;
+}
+
+export function shouldUseShellForCommand(command: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== "win32") return false;
+
+  const extension = extname(command).toLowerCase();
+  if (!extension) return true;
+  return extension === ".cmd" || extension === ".bat";
 }

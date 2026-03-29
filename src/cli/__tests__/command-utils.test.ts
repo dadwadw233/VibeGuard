@@ -2,7 +2,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findExecutable } from "../command-utils.js";
+import { findExecutable, shouldUseShellForCommand } from "../command-utils.js";
 
 describe("findExecutable", () => {
   let tempDir: string;
@@ -54,5 +54,24 @@ describe("findExecutable", () => {
     });
 
     expect(found).toBe(executable);
+  });
+});
+
+describe("shouldUseShellForCommand", () => {
+  it("returns false on non-Windows platforms", () => {
+    expect(shouldUseShellForCommand("claude", "darwin")).toBe(false);
+  });
+
+  it("returns true for extensionless Windows commands", () => {
+    expect(shouldUseShellForCommand("claude", "win32")).toBe(true);
+  });
+
+  it("returns true for .cmd/.bat Windows scripts", () => {
+    expect(shouldUseShellForCommand("claude.cmd", "win32")).toBe(true);
+    expect(shouldUseShellForCommand("claude.bat", "win32")).toBe(true);
+  });
+
+  it("returns false for native Windows executables", () => {
+    expect(shouldUseShellForCommand("claude.exe", "win32")).toBe(false);
   });
 });
