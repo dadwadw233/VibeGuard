@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { getDashboardUrl, getInstallStatePath, getVibeGuardDir } from "../paths.js";
 import { ClaudeAdapter } from "./adapters/claude.js";
 import type { HostAdapter, InstallSummary, UninstallSummary } from "./adapters/types.js";
+import { maybeAutoUpdate } from "./auto-update.js";
 import { pluralize } from "./command-utils.js";
 import { getRuntimeInstallMetadata } from "./health.js";
 import { readInstallState, updateInstallState, type HostTarget } from "./install-state.js";
@@ -183,6 +184,7 @@ async function runLaunch(args: string[]): Promise<number> {
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, ...args] = argv;
+  maybeAutoUpdate(getRuntimePaths(), command);
 
   switch (command) {
     case "install":

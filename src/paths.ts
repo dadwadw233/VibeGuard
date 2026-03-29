@@ -11,6 +11,10 @@ export function getInstallStatePath(): string {
   return join(getVibeGuardDir(), "install-state.json");
 }
 
+export function getUpdateStatePath(): string {
+  return join(getVibeGuardDir(), "update-state.json");
+}
+
 export function getClaudeConfigDir(): string {
   return process.env.VIBEGUARD_CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
 }

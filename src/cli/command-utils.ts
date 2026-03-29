@@ -18,6 +18,12 @@ export interface LaunchOptions {
   stdin?: string;
 }
 
+export interface RunCommandOptions {
+  timeoutMs?: number;
+  env?: NodeJS.ProcessEnv;
+  cwd?: string;
+}
+
 export interface FindExecutableOptions {
   pathValue?: string;
   platform?: NodeJS.Platform;
@@ -71,12 +77,15 @@ function getExecutableCandidates(command: string, platform: NodeJS.Platform, pat
   return [...new Set(candidates)];
 }
 
-export function runCommand(command: string, args: string[]): CommandResult {
+export function runCommand(command: string, args: string[], options: RunCommandOptions = {}): CommandResult {
   const useShell = shouldUseShellForCommand(command);
   const result = spawnSync(command, args, {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "pipe"],
     shell: useShell,
+    timeout: options.timeoutMs,
+    env: options.env,
+    cwd: options.cwd,
   });
 
   return {

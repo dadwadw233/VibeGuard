@@ -71,6 +71,16 @@ vibeguard dashboard
 vibeguard mcp
 ```
 
+## Auto Update
+
+VibeGuard checks for new npm versions automatically when you run CLI commands and will attempt a global update when a newer version is found.
+
+Disable this behavior if needed:
+
+```bash
+export VIBEGUARD_DISABLE_AUTO_UPDATE=1
+```
+
 ## Troubleshooting
 
 ### Native module mismatch (`better-sqlite3`)
