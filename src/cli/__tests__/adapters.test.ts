@@ -23,6 +23,8 @@ function createRuntime(tempDir: string): RuntimePaths {
 
   return {
     packageRoot: tempDir,
+    packageName: "@dadwadw/vibeguard",
+    packageVersion: "0.1.1-test",
     distDir,
     cliEntry: join(distDir, "cli.js"),
     preToolUseHook: join(distDir, "hooks", "pre-tool-use.js"),

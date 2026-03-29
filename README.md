@@ -11,7 +11,21 @@ Security guard for Claude Code. VibeGuard detects secrets, flags dangerous opera
 
 ## Install
 
-VibeGuard is not published to npm yet. Install it from a local checkout or directly from Git.
+Preferred install path:
+
+```bash
+npm install -g @dadwadw/vibeguard
+vibeguard install
+vibeguard doctor
+```
+
+If npm publish is not available yet in your environment, use Git install:
+
+```bash
+npm install -g git+ssh://git@github.com/dadwadw233/VibeGuard.git#main
+vibeguard install
+vibeguard doctor
+```
 
 ### From a local checkout
 
@@ -21,14 +35,6 @@ cd VibeGuard
 npm install
 npm run build
 npm install -g .
-vibeguard install
-vibeguard doctor
-```
-
-### From Git
-
-```bash
-npm install -g git+ssh://git@github.com/dadwadw233/VibeGuard.git#codex/claude-only-cli
 vibeguard install
 vibeguard doctor
 ```
@@ -56,6 +62,25 @@ vibeguard doctor [--target claude]
 vibeguard launch claude -- <claude args...>
 vibeguard dashboard
 vibeguard mcp
+```
+
+## Troubleshooting
+
+### Native module mismatch (`better-sqlite3`)
+
+If `vibeguard doctor` reports a native module error or `vibeguard dashboard` returns 500 errors:
+
+```bash
+npm rebuild better-sqlite3
+vibeguard doctor
+```
+
+If you switched Node versions (for example via `nvm`), reinstall the global package in the active Node version:
+
+```bash
+npm install -g @dadwadw/vibeguard
+vibeguard install
+vibeguard doctor
 ```
 
 ## Dashboard

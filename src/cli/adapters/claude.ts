@@ -3,6 +3,7 @@ import { dirname } from "path";
 import { getClaudeSettingsPath, getDashboardUrl } from "../../paths.js";
 import { mergeClaudeSettings, type ClaudeSettings } from "../claude-settings.js";
 import { findExecutable, launchCommand, runCommand, shellQuote } from "../command-utils.js";
+import { getBetterSqliteHealthCheck, getRuntimeConsistencyCheck } from "../health.js";
 import type { InstallState } from "../install-state.js";
 import type { RuntimePaths } from "../runtime.js";
 import type { DoctorCheck, DoctorSummary, HostAdapter, InstallSummary } from "./types.js";
@@ -78,6 +79,8 @@ export class ClaudeAdapter implements HostAdapter {
           entry.matcher === "" &&
           entry.hooks.some((hook) => hook.command === userPromptCommand)
       );
+    const runtimeCheck = getRuntimeConsistencyCheck(runtime, state);
+    const nativeCheck = getBetterSqliteHealthCheck(runtime);
     const claudeBinary = findExecutable("claude");
     const mcpCheck = claudeBinary ? this.getMcpCheck() : { ok: false, details: "Claude CLI not found on PATH." };
 
@@ -94,6 +97,8 @@ export class ClaudeAdapter implements HostAdapter {
           ? `Managed install recorded for ${settingsPath}.`
           : "No managed Claude install recorded yet. Run `vibeguard install --target claude`.",
       },
+      runtimeCheck,
+      nativeCheck,
       {
         label: "PreToolUse hook",
         ok: hasPreToolHook,
@@ -127,11 +132,16 @@ export class ClaudeAdapter implements HostAdapter {
     };
   }
 
-  async launch(_runtime: RuntimePaths, state: InstallState, args: string[]): Promise<number> {
+  async launch(runtime: RuntimePaths, state: InstallState, args: string[]): Promise<number> {
     const claudeBinary = findExecutable("claude");
     if (!claudeBinary) {
       console.error("VibeGuard could not find the Claude CLI on PATH.");
       return 1;
+    }
+
+    const runtimeCheck = getRuntimeConsistencyCheck(runtime, state);
+    if (!runtimeCheck.ok) {
+      console.warn(`⚠️  ${runtimeCheck.details}`);
     }
 
     const configured = Boolean(state.targets.claude);

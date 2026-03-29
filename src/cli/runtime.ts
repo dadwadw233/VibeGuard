@@ -1,9 +1,11 @@
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 export interface RuntimePaths {
   packageRoot: string;
+  packageName: string;
+  packageVersion: string;
   distDir: string;
   cliEntry: string;
   preToolUseHook: string;
@@ -16,11 +18,17 @@ export interface RuntimePaths {
 
 export function getRuntimePaths(): RuntimePaths {
   const packageJsonPath = fileURLToPath(new URL("../package.json", import.meta.url));
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as {
+    name?: string;
+    version?: string;
+  };
   const packageRoot = dirname(packageJsonPath);
   const distDir = join(packageRoot, "dist");
 
   return {
     packageRoot,
+    packageName: packageJson.name ?? "vibeguard",
+    packageVersion: packageJson.version ?? "0.0.0",
     distDir,
     cliEntry: join(distDir, "cli.js"),
     preToolUseHook: join(distDir, "hooks", "pre-tool-use.js"),

@@ -2,6 +2,20 @@ import { getRuntimeRules, type RuntimeRules } from "../config/index.js";
 import { scanContent, scanCommand, scanFilePath } from "../scanner/index.js";
 import { getEvents, getStats } from "../store/index.js";
 
+function formatStorageError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.replace(/\s+/g, " ");
+  if (
+    normalized.includes("NODE_MODULE_VERSION") ||
+    normalized.includes("better_sqlite3.node") ||
+    normalized.includes("different Node.js version")
+  ) {
+    return "VibeGuard storage is unavailable because better-sqlite3 is built for a different Node runtime. Run `npm rebuild better-sqlite3` and restart.";
+  }
+
+  return `VibeGuard storage is unavailable: ${normalized}`;
+}
+
 export function renderScanTextResult(
   text: string,
   context?: string,
@@ -28,10 +42,18 @@ export function renderScanCommandResult(command: string, runtimeRules: RuntimeRu
 }
 
 export function renderSecurityEvents(limit: number, category?: "secret" | "sensitive-file" | "dangerous-command"): string {
-  const events = getEvents({ limit, category });
-  return events.length === 0 ? "No security events recorded." : JSON.stringify(events, null, 2);
+  try {
+    const events = getEvents({ limit, category });
+    return events.length === 0 ? "No security events recorded." : JSON.stringify(events, null, 2);
+  } catch (error) {
+    return formatStorageError(error);
+  }
 }
 
 export function renderSecurityStats(): string {
-  return JSON.stringify(getStats(), null, 2);
+  try {
+    return JSON.stringify(getStats(), null, 2);
+  } catch (error) {
+    return formatStorageError(error);
+  }
 }

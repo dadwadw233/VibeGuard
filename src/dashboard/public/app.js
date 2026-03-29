@@ -17,6 +17,27 @@ const SEVERITY_META = {
 
 let currentPage = 0;
 
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  let payload = null;
+
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const details =
+      payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+        ? payload.error
+        : `Request failed (${response.status})`;
+    throw new Error(details);
+  }
+
+  return payload;
+}
+
 function setHeaderStatus(message, tone = "live") {
   const node = document.getElementById("header-status");
   if (!node) return;
@@ -65,7 +86,7 @@ function setOverviewLoading() {
 async function loadOverview() {
   setOverviewLoading();
   try {
-    const stats = await fetch(`${API}/api/stats`).then((response) => response.json());
+    const stats = await fetchJson(`${API}/api/stats`);
 
     document.getElementById("stat-total").textContent = formatCount(stats.total_events ?? 0);
     document.getElementById("stat-blocked").textContent = formatCount(stats.blocked_count ?? 0);
@@ -166,7 +187,7 @@ async function loadEvents() {
   setEventsLoading();
 
   try {
-    const events = await fetch(`${API}/api/events?${params}`).then((response) => response.json());
+    const events = await fetchJson(`${API}/api/events?${params}`);
     renderEventsTable(events);
 
     document.getElementById("page-info").textContent = `Page ${currentPage + 1}`;
@@ -222,7 +243,7 @@ function setRulesLoading() {
 async function loadRules() {
   setRulesLoading();
   try {
-    const rules = await fetch(`${API}/api/rules`).then((response) => response.json());
+    const rules = await fetchJson(`${API}/api/rules`);
     renderRules(rules);
   } catch (err) {
     console.error("Failed to load rules:", err);
@@ -400,17 +421,11 @@ document.getElementById("btn-save-rule").addEventListener("click", async () => {
   }
 
   try {
-    const response = await fetch(`${API}/api/rules/custom`, {
+    await fetchJson(`${API}/api/rules/custom`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, description, category, regex, severity }),
     });
-
-    if (!response.ok) {
-      const payload = await response.json();
-      alert(payload.error || "Failed to save rule.");
-      return;
-    }
 
     document.getElementById("add-rule-form").classList.add("hidden");
     document.getElementById("rule-id").value = "";

@@ -12,10 +12,17 @@ export interface TargetInstallState {
   commands?: Partial<Record<"preToolUse" | "userPrompt" | "launch", string>>;
 }
 
+export interface RuntimeInstallMetadata {
+  nodeBinary: string;
+  nodeVersion: string;
+  packageVersion: string;
+}
+
 export interface InstallState {
   version: 1;
   packageRoot: string;
   updatedAt: string;
+  runtime?: RuntimeInstallMetadata;
   targets: Partial<Record<HostTarget, TargetInstallState>>;
 }
 
@@ -24,7 +31,26 @@ export function createEmptyInstallState(packageRoot = ""): InstallState {
     version: 1,
     packageRoot,
     updatedAt: new Date(0).toISOString(),
+    runtime: undefined,
     targets: {},
+  };
+}
+
+function readRuntimeMetadata(parsed: unknown): RuntimeInstallMetadata | undefined {
+  if (!parsed || typeof parsed !== "object") return undefined;
+  const candidate = parsed as Record<string, unknown>;
+  if (
+    typeof candidate.nodeBinary !== "string" ||
+    typeof candidate.nodeVersion !== "string" ||
+    typeof candidate.packageVersion !== "string"
+  ) {
+    return undefined;
+  }
+
+  return {
+    nodeBinary: candidate.nodeBinary,
+    nodeVersion: candidate.nodeVersion,
+    packageVersion: candidate.packageVersion,
   };
 }
 
@@ -37,6 +63,7 @@ export function readInstallState(): InstallState {
       version: 1,
       packageRoot: parsed.packageRoot ?? "",
       updatedAt: parsed.updatedAt ?? new Date(0).toISOString(),
+      runtime: readRuntimeMetadata((parsed as { runtime?: unknown }).runtime),
       targets: parsed.targets ?? {},
     };
   } catch {

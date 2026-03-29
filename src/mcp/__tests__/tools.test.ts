@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { RuntimeRules } from "../../config/index.js";
+import * as store from "../../store/index.js";
 import {
   renderScanCommandResult,
   renderScanFileResult,
+  renderSecurityStats,
   renderScanTextResult,
 } from "../tools.js";
 
@@ -59,5 +61,16 @@ describe("MCP tool renderers", () => {
     const output = renderScanTextResult("INTERNAL_ABCDEF123456", undefined, runtimeRules);
     expect(output).toContain("Found 1 issue");
     expect(output).toContain("Internal token");
+  });
+
+  it("returns actionable guidance when storage is unavailable", () => {
+    const spy = vi.spyOn(store, "getStats").mockImplementation(() => {
+      throw new Error("NODE_MODULE_VERSION mismatch for better_sqlite3.node");
+    });
+
+    const output = renderSecurityStats();
+    expect(output).toContain("npm rebuild better-sqlite3");
+
+    spy.mockRestore();
   });
 });

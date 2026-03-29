@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "fs";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,6 +27,11 @@ describe("install state", () => {
   it("persists updates under the managed vibeguard directory", () => {
     const result = updateInstallState("/pkg/root", (current) => ({
       ...current,
+      runtime: {
+        nodeBinary: "/usr/local/bin/node",
+        nodeVersion: "v22.0.0",
+        packageVersion: "0.1.1",
+      },
       targets: {
         ...current.targets,
         claude: {
@@ -39,6 +44,24 @@ describe("install state", () => {
 
     expect(getInstallStatePath()).toBe(join(tempHome, "install-state.json"));
     expect(result.packageRoot).toBe("/pkg/root");
+    expect(result.runtime?.packageVersion).toBe("0.1.1");
     expect(readInstallState().targets.claude?.configPath).toBe("/tmp/settings.json");
+  });
+
+  it("reads legacy state files without runtime metadata", () => {
+    writeFileSync(
+      getInstallStatePath(),
+      JSON.stringify({
+        version: 1,
+        packageRoot: "/pkg/legacy",
+        updatedAt: "2026-03-01T00:00:00.000Z",
+        targets: {},
+      }),
+      "utf-8"
+    );
+
+    const state = readInstallState();
+    expect(state.packageRoot).toBe("/pkg/legacy");
+    expect(state.runtime).toBeUndefined();
   });
 });

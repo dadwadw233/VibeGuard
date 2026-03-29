@@ -1,5 +1,5 @@
 {
-  "name": "vibeguard",
+  "name": "@dadwadw/vibeguard",
   "version": "0.1.0",
   "description": "Security guard for AI coding agents - detects secrets, blocks dangerous operations",
   "type": "module",
@@ -21,7 +21,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dashboard": "node dist/dashboard/server.js",
-    "hook": "node dist/hooks/pre-tool-use.js"
+    "hook": "node dist/hooks/pre-tool-use.js",
+    "release:dry-run": "npm publish --dry-run --access public"
   },
   "keywords": [
     "security",

@@ -6,6 +6,7 @@ import { getDashboardUrl, getInstallStatePath, getVibeGuardDir } from "../paths.
 import { ClaudeAdapter } from "./adapters/claude.js";
 import type { HostAdapter, InstallSummary } from "./adapters/types.js";
 import { pluralize } from "./command-utils.js";
+import { getRuntimeInstallMetadata } from "./health.js";
 import { readInstallState, updateInstallState, type HostTarget } from "./install-state.js";
 import { getMissingArtifacts, getRuntimePaths } from "./runtime.js";
 
@@ -98,6 +99,7 @@ async function runInstall(args: string[]): Promise<number> {
     if (summary.ok) {
       updateInstallState(runtime.packageRoot, (current) => ({
         ...current,
+        runtime: getRuntimeInstallMetadata(runtime),
         targets: {
           ...current.targets,
           [target]: summary.state ?? current.targets[target],
