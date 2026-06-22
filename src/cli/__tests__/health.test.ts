@@ -12,6 +12,8 @@ function createRuntimePaths(): RuntimePaths {
     cliEntry: "/tmp/vibeguard/dist/cli.js",
     preToolUseHook: "/tmp/vibeguard/dist/hooks/pre-tool-use.js",
     userPromptHook: "/tmp/vibeguard/dist/hooks/user-prompt-submit.js",
+    codexPreToolUseHook: "/tmp/vibeguard/dist/hooks/codex-pre-tool-use.js",
+    codexUserPromptHook: "/tmp/vibeguard/dist/hooks/codex-user-prompt-submit.js",
     mcpServer: "/tmp/vibeguard/dist/mcp/server.js",
     dashboardServer: "/tmp/vibeguard/dist/dashboard/server.js",
     dashboardPublicDir: "/tmp/vibeguard/dist/dashboard/public",

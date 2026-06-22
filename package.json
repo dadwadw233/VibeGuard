@@ -1,6 +1,6 @@
 {
   "name": "@embodot/vibeguard",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Security guard for AI coding agents - detects secrets, blocks dangerous operations",
   "type": "module",
   "main": "dist/cli.js",

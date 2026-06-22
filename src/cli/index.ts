@@ -4,30 +4,31 @@ import { mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { getDashboardUrl, getInstallStatePath, getVibeGuardDir } from "../paths.js";
 import { ClaudeAdapter } from "./adapters/claude.js";
+import { CodexAdapter } from "./adapters/codex.js";
 import type { HostAdapter, InstallSummary, UninstallSummary } from "./adapters/types.js";
 import { maybeAutoUpdate } from "./auto-update.js";
 import { pluralize } from "./command-utils.js";
+import { getPolicyPresetDescription, isPolicyPreset, readPolicy, writePolicy } from "../config/policy.js";
 import { getRuntimeInstallMetadata } from "./health.js";
 import { readInstallState, updateInstallState, type HostTarget } from "./install-state.js";
 import { getMissingArtifacts, getRuntimePaths } from "./runtime.js";
 
 const adapters: Record<HostTarget, HostAdapter> = {
   claude: new ClaudeAdapter(),
+  codex: new CodexAdapter(),
 };
-
-export function getCodexRemovalMessage(): string {
-  return "Codex support has been removed from VibeGuard. Remove the old MCP registration with `codex mcp remove vibeguard` and use the Claude integration instead.";
-}
 
 function printUsage(): void {
   console.log(`
-VibeGuard - Security guard for Claude Code
+VibeGuard - Security guard for AI coding agents
 
 Usage:
-  vibeguard install [--target claude]
-  vibeguard uninstall [--target claude]
-  vibeguard doctor [--target claude]
+  vibeguard install [--target claude|codex|all]
+  vibeguard uninstall [--target claude|codex|all]
+  vibeguard doctor [--target claude|codex|all]
   vibeguard launch claude -- [claude args...]
+  vibeguard launch codex -- [codex args...]
+  vibeguard config preset [minimal|balanced|strict]
   vibeguard dashboard
   vibeguard mcp
 
@@ -49,21 +50,18 @@ export function parseTarget(args: string[]): HostTarget[] {
     case undefined:
       return ["claude"];
     case "codex":
+      return ["codex"];
     case "all":
-      throw new Error(getCodexRemovalMessage());
+      return ["claude", "codex"];
     default:
-      throw new Error(`Unsupported target '${rawTarget}'. Use claude.`);
+      throw new Error(`Unsupported target '${rawTarget}'. Use claude, codex, or all.`);
   }
 }
 
 export function parseLaunchArgs(args: string[]): { host: HostTarget; passthrough: string[] } {
   const [host, ...rest] = args;
-  if (host === "codex") {
-    throw new Error(getCodexRemovalMessage());
-  }
-
-  if (host !== "claude") {
-    throw new Error("Launch requires a host: `vibeguard launch claude -- <args>`.");
+  if (host !== "claude" && host !== "codex") {
+    throw new Error("Launch requires a host: `vibeguard launch claude -- <args>` or `vibeguard launch codex -- <args>`.");
   }
 
   const separatorIndex = rest.indexOf("--");
@@ -182,6 +180,31 @@ async function runLaunch(args: string[]): Promise<number> {
   return await adapters[host].launch(runtime, state, passthrough);
 }
 
+async function runConfig(args: string[]): Promise<number> {
+  const [subcommand, value] = args;
+  if (subcommand !== "preset") {
+    console.error("Usage: vibeguard config preset [minimal|balanced|strict]");
+    return 1;
+  }
+
+  if (value === undefined) {
+    const policy = readPolicy();
+    console.log(`Policy preset: ${policy.preset}`);
+    console.log(getPolicyPresetDescription(policy.preset));
+    return 0;
+  }
+
+  if (!isPolicyPreset(value)) {
+    console.error(`Unsupported preset '${value}'. Use minimal, balanced, or strict.`);
+    return 1;
+  }
+
+  writePolicy({ preset: value });
+  console.log(`Policy preset: ${value}`);
+  console.log(getPolicyPresetDescription(value));
+  return 0;
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, ...args] = argv;
   maybeAutoUpdate(getRuntimePaths(), command);
@@ -199,8 +222,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     case "launch":
       process.exit(await runLaunch(args));
       return;
-    case "codex":
-      throw new Error(getCodexRemovalMessage());
+    case "config":
+      process.exit(await runConfig(args));
+      return;
     case "dashboard":
       await import("../dashboard/server.js");
       return;

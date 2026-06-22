@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname } from "path";
 import { getClaudeSettingsPath, getDashboardUrl } from "../../paths.js";
+import { getPolicyPresetDescription, readPolicy } from "../../config/policy.js";
 import { mergeClaudeSettings, removeManagedClaudeHooks, type ClaudeSettings } from "../claude-settings.js";
 import { findExecutable, launchCommand, runCommand, shellQuote } from "../command-utils.js";
 import { getBetterSqliteHealthCheck, getRuntimeConsistencyCheck } from "../health.js";
@@ -115,6 +116,7 @@ export class ClaudeAdapter implements HostAdapter {
     const nativeCheck = getBetterSqliteHealthCheck(runtime);
     const claudeBinary = findExecutable("claude");
     const mcpCheck = claudeBinary ? this.getMcpCheck() : { ok: false, details: "Claude CLI not found on PATH." };
+    const policy = readPolicy();
 
     const checks: DoctorCheck[] = [
       {
@@ -144,6 +146,11 @@ export class ClaudeAdapter implements HostAdapter {
         details: hasUserPromptHook
           ? "Prompt scanning hook is present in Claude settings."
           : "UserPromptSubmit hook is missing or no longer matches the managed install state.",
+      },
+      {
+        label: "Policy preset",
+        ok: true,
+        details: `${policy.preset}: ${getPolicyPresetDescription(policy.preset)}`,
       },
       {
         label: "Claude MCP server",
@@ -183,9 +190,11 @@ export class ClaudeAdapter implements HostAdapter {
 
   private banner(configured: boolean): string {
     const status = configured ? "installed" : "not installed";
+    const policy = readPolicy();
     return [
       "=== VibeGuard active for Claude ===",
       `Status: ${status}`,
+      `Policy preset: ${policy.preset}`,
       "Protections: PreToolUse blocking, prompt scanning, dashboard logging",
       `Dashboard: ${getDashboardUrl()} via \`vibeguard dashboard\``,
       "",

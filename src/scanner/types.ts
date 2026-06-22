@@ -62,6 +62,7 @@ export interface HookOutput {
     hookEventName: string;
     permissionDecision: "allow" | "deny" | "ask";
     permissionDecisionReason?: string;
+    additionalContext?: string;
   };
 }
 

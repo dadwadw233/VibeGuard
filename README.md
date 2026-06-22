@@ -1,8 +1,8 @@
 <div align="center">
 
-# &#128737;&#65039; VibeGuard
+# VibeGuard
 
-**Security plugin for Claude Code — detects secrets, blocks dangerous commands, and logs every tool action.**
+**Security guard for Claude Code and Codex. Detect secrets, block dangerous operations, and keep a local audit trail.**
 
 [![npm version][npm-badge]][npm-url]
 [![License: MIT][license-badge]](LICENSE)
@@ -20,189 +20,125 @@
 
 ## Overview
 
-VibeGuard sits between Claude Code and your filesystem as a tool hook. Before any shell command runs or any file is written, VibeGuard intercepts the call, scans for secrets and dangerous patterns, and either allows, warns, or blocks the action — giving you an audit trail along the way.
+VibeGuard installs managed hooks for Claude Code and Codex. Before supported prompts, shell commands, file writes, or edits proceed, VibeGuard scans for secrets and dangerous patterns, then allows, warns, asks for confirmation, or blocks based on the active policy preset.
 
-## What it catches
+## What It Catches
 
-**Secrets in file content and command arguments**
+- API keys and tokens for OpenAI, Anthropic, AWS, GitHub, GitLab, Stripe, Slack, SendGrid, NPM, PyPI, and more
+- Private keys, database URLs with passwords, generic secret assignments, JWTs, and password URLs
+- Sensitive files such as `.env`, SSH keys, AWS credentials, Docker/Kubernetes configs, shell history, and `.netrc`
+- Dangerous commands such as `rm -rf /`, `mkfs`, `dd of=/dev/...`, fork bombs, force push to main, pipe-to-shell, and destructive SQL
 
-| Pattern | Example shape |
-|---|---|
-| OpenAI / Anthropic API keys | `sk-proj-...`, `sk-ant-...` |
-| AWS access keys | `AKIA...` followed by 16 alphanumeric characters |
-| Generic API key assignments | `api_key = "<value>"` |
-| Passwords in connection strings | `postgres://user:hunter2&#64;db.example.com/mydb` |
-| PEM private key blocks | `BEGIN PRIVATE KEY` header line and base64 body |
-
-**Dangerous shell commands**
-
-| Command | Why it is blocked |
-|---|---|
-| `rm -rf /` | Wipes the root filesystem |
-| `rm -rf ~` / `rm -rf $HOME` | Wipes the home directory |
-| `chmod 777 /etc` | Removes all permission boundaries |
-| Recursive deletes inside home subdirectories | e.g. `rm -rf ~/projects` |
-| Pipe-to-shell patterns | e.g. `curl ... \| bash` |
-
----
-
-## How it works
-
-```
-You type  →  Claude calls tool  →  VibeGuard hook intercepts  →  Scan  →  Allow / Block / Warn
-```
-
-Internally:
-
-1. Claude Code fires a `PreToolUse` hook before every tool invocation.
-2. VibeGuard receives the tool name and full input payload as JSON on stdin.
-3. The scanner checks content against a set of regex rules for secrets and command patterns.
-4. VibeGuard writes a structured log entry, then exits `0` (allow), `2` (block), or outputs a warning to stderr.
-5. Claude Code respects the exit code and either proceeds or surfaces the block reason to you.
-
----
-
-## Installation
+## Install
 
 ```bash
-npm install -g &#64;embodot/vibeguard
-```
-
-Verify the install:
-
-```bash
-vibeguard --version
-```
-
-### Register with Claude Code
-
-```bash
+npm install -g @embodot/vibeguard
 vibeguard install
+vibeguard doctor
 ```
 
-This writes the hook entry into your Claude Code settings (`~/.claude/settings.json`). To confirm:
+By default, `vibeguard install` configures Claude only. Use explicit targets for Codex or both hosts:
 
 ```bash
-vibeguard status
+vibeguard install --target codex
+vibeguard install --target all
 ```
 
----
+## Claude
+
+```bash
+vibeguard install --target claude
+vibeguard launch claude -- --help
+```
+
+Claude integration includes `PreToolUse` hooks for `Bash|Write|Edit|Read`, `UserPromptSubmit` secret scanning, optional MCP registration, and dashboard logging.
+
+## Codex
+
+Codex support uses official Codex hooks. It does not use the old PTY/TUI proxy approach.
+
+```bash
+vibeguard install --target codex
+vibeguard doctor --target codex
+vibeguard launch codex -- --help
+```
+
+Codex integration includes `UserPromptSubmit` secret scanning, `PreToolUse` scanning for supported tool events such as `Bash`, `apply_patch`, `Edit`, and `Write`, and dashboard logging. Coverage follows the official Codex hook surface. If Codex asks you to review hooks, trust the VibeGuard entries from `/hooks` before relying on enforcement.
+
+## Policy Presets
+
+VibeGuard defaults to `balanced`.
+
+```bash
+vibeguard config preset
+vibeguard config preset minimal
+vibeguard config preset balanced
+vibeguard config preset strict
+```
+
+- `minimal`: block critical findings only
+- `balanced`: block critical and high findings
+- `strict`: block critical, high, and medium findings
+
+Policy is stored at `~/.vibeguard/policy.json`.
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `vibeguard install` | Register hooks in Claude Code settings |
-| `vibeguard uninstall` | Remove hooks from Claude Code settings |
-| `vibeguard status` | Show current hook registration and config path |
-| `vibeguard logs` | Stream the live action log |
-| `vibeguard logs --tail 50` | Show last 50 log entries |
-| `vibeguard dashboard` | Open the terminal dashboard (requires a TTY) |
-| `vibeguard audit` | Print a summary report of blocked/warned events |
-| `vibeguard config` | Print resolved configuration |
-
----
+```bash
+vibeguard install [--target claude|codex|all]
+vibeguard uninstall [--target claude|codex|all]
+vibeguard doctor [--target claude|codex|all]
+vibeguard launch claude -- <claude args...>
+vibeguard launch codex -- <codex args...>
+vibeguard config preset [minimal|balanced|strict]
+vibeguard dashboard
+vibeguard mcp
+```
 
 ## Dashboard
 
-`vibeguard dashboard` renders a live terminal UI showing:
-
-- Real-time tool call feed with allow / block / warn status
-- Rolling count of events per tool type
-- Last blocked command and reason
-
-Requires a true terminal (does not work over a plain pipe). Exit with `q` or `Ctrl-C`.
-
----
-
-## Configuration
-
-VibeGuard reads configuration from the first file found in this order:
-
-1. `VIBEGUARD_CONFIG` environment variable (path to a JSON file)
-2. `.vibeguard.json` in the current working directory
-3. `~/.config/vibeguard/config.json`
-
-**Example `.vibeguard.json`**
-
-```json
-{
-  "logPath": "~/.vibeguard/actions.log",
-  "blockSecrets": true,
-  "blockDangerousCommands": true,
-  "warnOnly": false,
-  "allowlist": [
-    "Read",
-    "ListDirectory"
-  ],
-  "extraSecretPatterns": [
-    "MY_INTERNAL_TOKEN_[A-Z0-9]+"
-  ]
-}
+```bash
+vibeguard dashboard
 ```
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `logPath` | string | `~/.vibeguard/actions.log` | Where to write the action log |
-| `blockSecrets` | boolean | `true` | Block tool calls containing secret patterns |
-| `blockDangerousCommands` | boolean | `true` | Block known dangerous shell commands |
-| `warnOnly` | boolean | `false` | Downgrade all blocks to warnings (still logs) |
-| `allowlist` | string[] | `[]` | Tool names to skip scanning entirely |
-| `extraSecretPatterns` | string[] | `[]` | Additional regex patterns to treat as secrets |
+Open [http://localhost:7847](http://localhost:7847). The dashboard shows overview statistics, daily trends, filterable event history, rule browsing, and custom pattern management.
 
----
+## How It Works
 
-## Log format
+1. `vibeguard install` updates `~/.claude/settings.json` idempotently.
+2. `vibeguard install --target codex` updates `~/.codex/hooks.json` idempotently.
+3. Claude or Codex invokes the VibeGuard hook scripts before supported operations run.
+4. VibeGuard scans with built-in rules plus dashboard-managed overrides and custom patterns.
+5. Findings are logged to `~/.vibeguard/events.db`.
 
-Each line in the log is newline-delimited JSON:
+## Auto Update
 
-```json
-{
-  "ts": "2026-04-05T10:22:01.443Z",
-  "tool": "Bash",
-  "action": "blocked",
-  "reason": "dangerous_command: rm -rf /",
-  "input": { "command": "rm -rf /" }
-}
+VibeGuard checks for new npm versions automatically when you run CLI commands and attempts a global update when a newer version is found.
+
+Disable this behavior if needed:
+
+```bash
+export VIBEGUARD_DISABLE_AUTO_UPDATE=1
 ```
-
-`action` is one of `allowed`, `warned`, or `blocked`.
-
----
 
 ## Troubleshooting
 
-**Hooks are not firing**
+### Native module mismatch (`better-sqlite3`)
 
-Run `vibeguard status` and confirm the hook appears under `PreToolUse` in the output. If not, re-run `vibeguard install` and restart Claude Code.
+If `vibeguard doctor` reports a native module error or `vibeguard dashboard` returns 500 errors:
 
-**Claude Code shows "hook exited with code 2"**
+```bash
+npm rebuild better-sqlite3
+vibeguard doctor
+```
 
-That is VibeGuard blocking a call. Check `vibeguard logs --tail 10` for the reason.
+If you switched Node versions, reinstall the global package in the active Node version:
 
-**False positive on a legitimate secret-shaped string**
-
-Add the tool to `allowlist` or set `warnOnly: true` while you investigate. Open an issue if the built-in rules need tuning.
-
-**Writing documentation that contains example secret patterns**
-
-VibeGuard scans the literal bytes being written. If you are documenting what VibeGuard detects, add `Write` to `allowlist` for that session or set `warnOnly: true` temporarily.
-
-**Dashboard does not render correctly**
-
-Ensure your terminal supports at least 80 columns and a 256-color profile. Prefixing with `TERM=xterm-256color` usually resolves rendering issues.
-
----
-
-## Migration
-
-### 0.x to 1.0
-
-- The hook binary was renamed from `vg-hook` to `vibeguard`. Re-run `vibeguard install` to update the settings entry.
-- `logFile` config key is now `logPath`. The old key still works but is deprecated and will be removed in 2.0.
-- `dangerousPatterns` array is now `extraSecretPatterns` (scope broadened). Rename the key in your config.
-
----
+```bash
+npm install -g @embodot/vibeguard
+vibeguard install
+vibeguard doctor
+```
 
 ## Development
 
@@ -214,38 +150,20 @@ npm run build
 npm test
 ```
 
-To test the hook locally without a global install, point Claude Code at the built binary:
+Repo-local plugin loading is still available for Claude development and debugging, but it is not the recommended end-user install path.
 
 ```bash
-node dist/hook.js
+claude --plugin-dir /path/to/VibeGuard
 ```
 
-Or register the local build directly:
+Built entrypoints:
 
-```bash
-node dist/cli.js install --bin ./dist/hook.js
-```
-
-**Running the test suite**
-
-```bash
-npm test              # unit tests
-npm run test:e2e      # end-to-end hook integration tests (requires Claude Code CLI)
-npm run lint
-```
-
----
-
-## Contributing
-
-Pull requests are welcome. For significant changes, open an issue first to discuss scope.
-
-- Follow the existing code style (`npm run lint` must pass).
-- All new detection rules must include a unit test covering both a true-positive and a true-negative case.
-- Do not weaken existing block rules without a security rationale in the PR description.
-
----
+- `dist/hooks/pre-tool-use.js`
+- `dist/hooks/user-prompt-submit.js`
+- `dist/hooks/codex-pre-tool-use.js`
+- `dist/hooks/codex-user-prompt-submit.js`
+- `dist/mcp/server.js`
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT

@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname } from "path";
 import { getInstallStatePath } from "../paths.js";
 
-export type HostTarget = "claude";
+export type HostTarget = "claude" | "codex";
 
 export interface TargetInstallState {
   installedAt: string;

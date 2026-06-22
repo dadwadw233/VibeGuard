@@ -3,6 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ClaudeAdapter } from "../adapters/claude.js";
+import { CodexAdapter } from "../adapters/codex.js";
 import type { InstallState } from "../install-state.js";
 import type { RuntimePaths } from "../runtime.js";
 
@@ -18,6 +19,8 @@ function createRuntime(tempDir: string): RuntimePaths {
   mkdirSync(join(distDir, "dashboard", "public"), { recursive: true });
   writeFileSync(join(distDir, "hooks", "pre-tool-use.js"), "", "utf-8");
   writeFileSync(join(distDir, "hooks", "user-prompt-submit.js"), "", "utf-8");
+  writeFileSync(join(distDir, "hooks", "codex-pre-tool-use.js"), "", "utf-8");
+  writeFileSync(join(distDir, "hooks", "codex-user-prompt-submit.js"), "", "utf-8");
   writeFileSync(join(distDir, "mcp", "server.js"), "", "utf-8");
   writeFileSync(join(distDir, "dashboard", "server.js"), "", "utf-8");
 
@@ -29,6 +32,8 @@ function createRuntime(tempDir: string): RuntimePaths {
     cliEntry: join(distDir, "cli.js"),
     preToolUseHook: join(distDir, "hooks", "pre-tool-use.js"),
     userPromptHook: join(distDir, "hooks", "user-prompt-submit.js"),
+    codexPreToolUseHook: join(distDir, "hooks", "codex-pre-tool-use.js"),
+    codexUserPromptHook: join(distDir, "hooks", "codex-user-prompt-submit.js"),
     mcpServer: join(distDir, "mcp", "server.js"),
     dashboardServer: join(distDir, "dashboard", "server.js"),
     dashboardPublicDir: join(distDir, "dashboard", "public"),
@@ -42,6 +47,7 @@ describe("host adapters", () => {
   let previousPath: string | undefined;
   let previousHome: string | undefined;
   let previousClaudeDir: string | undefined;
+  let previousCodexDir: string | undefined;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "vibeguard-adapter-"));
@@ -50,15 +56,18 @@ describe("host adapters", () => {
     previousPath = process.env.PATH;
     previousHome = process.env.VIBEGUARD_HOME_DIR;
     previousClaudeDir = process.env.VIBEGUARD_CLAUDE_CONFIG_DIR;
+    previousCodexDir = process.env.VIBEGUARD_CODEX_CONFIG_DIR;
     process.env.PATH = `${binDir}:${previousPath ?? ""}`;
     process.env.VIBEGUARD_HOME_DIR = join(tempDir, "vibeguard-home");
     process.env.VIBEGUARD_CLAUDE_CONFIG_DIR = join(tempDir, "claude-home");
+    process.env.VIBEGUARD_CODEX_CONFIG_DIR = join(tempDir, "codex-home");
   });
 
   afterEach(() => {
     process.env.PATH = previousPath;
     process.env.VIBEGUARD_HOME_DIR = previousHome;
     process.env.VIBEGUARD_CLAUDE_CONFIG_DIR = previousClaudeDir;
+    process.env.VIBEGUARD_CODEX_CONFIG_DIR = previousCodexDir;
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -145,5 +154,56 @@ exit 0
     expect(settings).not.toContain("pre-tool-use.js");
     expect(settings).not.toContain("user-prompt-submit.js");
     expect(() => readFileSync(claudeLog, "utf-8")).toThrow();
+  });
+
+  it("installs and uninstalls Codex hooks without removing user hooks", () => {
+    writeExecutable(join(binDir, "codex"), "#!/bin/sh\nexit 0\n");
+    const hooksPath = join(tempDir, "codex-home", "hooks.json");
+    mkdirSync(join(tempDir, "codex-home"), { recursive: true });
+    writeFileSync(hooksPath, JSON.stringify({
+      hooks: {
+        PostToolUse: [
+          {
+            matcher: "*",
+            hooks: [{ type: "command", command: "node /custom/hook.js" }],
+          },
+        ],
+      },
+    }), "utf-8");
+
+    const adapter = new CodexAdapter();
+    const runtime = createRuntime(tempDir);
+    const state = {
+      version: 1 as const,
+      packageRoot: tempDir,
+      updatedAt: "",
+      targets: {},
+    } as InstallState;
+
+    const installSummary = adapter.install(runtime, state);
+    expect(installSummary.ok).toBe(true);
+    expect(installSummary.state?.commands?.preToolUse).toContain("codex-pre-tool-use.js");
+    expect(installSummary.state?.commands?.userPrompt).toContain("codex-user-prompt-submit.js");
+
+    const installedHooks = readFileSync(hooksPath, "utf-8");
+    expect(installedHooks).toContain("codex-pre-tool-use.js");
+    expect(installedHooks).toContain("codex-user-prompt-submit.js");
+    expect(installedHooks).toContain("/custom/hook.js");
+
+    const doctor = adapter.doctor(runtime, {
+      ...state,
+      targets: { codex: installSummary.state },
+    });
+    expect(doctor.ok).toBe(true);
+
+    const uninstallSummary = adapter.uninstall(runtime, {
+      ...state,
+      targets: { codex: installSummary.state },
+    });
+    expect(uninstallSummary.ok).toBe(true);
+    const uninstalledHooks = readFileSync(hooksPath, "utf-8");
+    expect(uninstalledHooks).not.toContain("codex-pre-tool-use.js");
+    expect(uninstalledHooks).not.toContain("codex-user-prompt-submit.js");
+    expect(uninstalledHooks).toContain("/custom/hook.js");
   });
 });

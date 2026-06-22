@@ -15,12 +15,24 @@ export function getUpdateStatePath(): string {
   return join(getVibeGuardDir(), "update-state.json");
 }
 
+export function getPolicyPath(): string {
+  return join(getVibeGuardDir(), "policy.json");
+}
+
 export function getClaudeConfigDir(): string {
   return process.env.VIBEGUARD_CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
 }
 
 export function getClaudeSettingsPath(): string {
   return join(getClaudeConfigDir(), "settings.json");
+}
+
+export function getCodexConfigDir(): string {
+  return process.env.VIBEGUARD_CODEX_CONFIG_DIR ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
+}
+
+export function getCodexHooksPath(): string {
+  return join(getCodexConfigDir(), "hooks.json");
 }
 
 export function getDashboardPort(): number {

@@ -10,6 +10,8 @@ export interface RuntimePaths {
   cliEntry: string;
   preToolUseHook: string;
   userPromptHook: string;
+  codexPreToolUseHook: string;
+  codexUserPromptHook: string;
   mcpServer: string;
   dashboardServer: string;
   dashboardPublicDir: string;
@@ -33,6 +35,8 @@ export function getRuntimePaths(): RuntimePaths {
     cliEntry: join(distDir, "cli.js"),
     preToolUseHook: join(distDir, "hooks", "pre-tool-use.js"),
     userPromptHook: join(distDir, "hooks", "user-prompt-submit.js"),
+    codexPreToolUseHook: join(distDir, "hooks", "codex-pre-tool-use.js"),
+    codexUserPromptHook: join(distDir, "hooks", "codex-user-prompt-submit.js"),
     mcpServer: join(distDir, "mcp", "server.js"),
     dashboardServer: join(distDir, "dashboard", "server.js"),
     dashboardPublicDir: join(distDir, "dashboard", "public"),
@@ -45,6 +49,8 @@ export function getMissingArtifacts(paths: RuntimePaths): string[] {
     paths.cliEntry,
     paths.preToolUseHook,
     paths.userPromptHook,
+    paths.codexPreToolUseHook,
+    paths.codexUserPromptHook,
     paths.mcpServer,
     paths.dashboardServer,
     paths.dashboardPublicDir,

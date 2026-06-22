@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RuntimeRules } from "../../config/index.js";
 import type { HookInput, UserPromptInput } from "../../scanner/types.js";
-import { handlePreToolUse, handleUserPromptSubmit } from "../shared.js";
+import { handleCodexPreToolUse, handlePreToolUse, handleUserPromptSubmit } from "../shared.js";
 
 describe("handlePreToolUse", () => {
   it("denies dangerous bash commands with a CLI-visible reason", () => {
@@ -86,6 +86,32 @@ describe("handlePreToolUse", () => {
     expect(output?.hookSpecificOutput?.permissionDecision).toBe("ask");
   });
 
+  it("uses minimal policy to warn on high-severity findings", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "git reset --hard",
+      },
+    };
+
+    const output = handlePreToolUse(input, getRuntimeRulesForTests(), { preset: "minimal" });
+    expect(output?.hookSpecificOutput?.permissionDecision).toBe("ask");
+  });
+
+  it("uses strict policy to block medium-severity findings", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "chmod 777 /var/www",
+      },
+    };
+
+    const output = handlePreToolUse(input, getRuntimeRulesForTests(), { preset: "strict" });
+    expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
+  });
+
   it("respects runtime disabled rules by allowing operations", () => {
     const input: HookInput = {
       hook_event_name: "PreToolUse",
@@ -102,6 +128,71 @@ describe("handlePreToolUse", () => {
     };
 
     expect(handlePreToolUse(input, runtimeRules)).toBeUndefined();
+  });
+});
+
+function getRuntimeRulesForTests(): RuntimeRules {
+  return {
+    secretRules: [],
+    fileRules: [],
+    commandRules: [
+      {
+        id: "git-reset-hard",
+        description: "Hard reset git history",
+        pattern: /git\s+reset\s+--hard/,
+        severity: "high",
+      },
+      {
+        id: "chmod-777",
+        description: "Set world-writable permissions",
+        pattern: /chmod\s+(?:-[a-zA-Z]+\s+)*777\s/,
+        severity: "medium",
+      },
+    ],
+  };
+}
+
+describe("handleCodexPreToolUse", () => {
+  it("denies dangerous bash commands", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "rm -rf /",
+      },
+    };
+
+    const output = handleCodexPreToolUse(input);
+    expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
+    expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("VibeGuard blocked this Codex Bash action");
+  });
+
+  it("adds context instead of denying medium-severity commands", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "chmod 777 /var/www",
+      },
+    };
+
+    const output = handleCodexPreToolUse(input);
+    expect(output?.hookSpecificOutput?.permissionDecision).toBe("allow");
+    expect(output?.hookSpecificOutput?.additionalContext).toContain("VibeGuard flagged this Codex Bash action");
+  });
+
+  it("denies secrets in apply_patch payloads", () => {
+    const input: HookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "apply_patch",
+      tool_input: {
+        patch: `+const key = "${"sk-ant-" + "a".repeat(80)}";`,
+      },
+    };
+
+    const output = handleCodexPreToolUse(input);
+    expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
+    expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("Anthropic API Key");
   });
 });
 
