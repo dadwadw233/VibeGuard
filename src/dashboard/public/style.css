@@ -215,6 +215,39 @@ input:focus-visible {
   font-size: 14px;
 }
 
+.health-alert {
+  align-items: center;
+  background: linear-gradient(110deg, rgba(102, 27, 38, 0.88), rgba(69, 34, 31, 0.9));
+  border: 1px solid rgba(255, 95, 109, 0.48);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+
+.health-alert-title {
+  color: #ffd7db;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.health-alert-details {
+  color: #f0bdc1;
+  font-size: 12px;
+}
+
+.health-alert code {
+  background: rgba(5, 11, 17, 0.35);
+  border: 1px solid rgba(255, 203, 207, 0.18);
+  border-radius: 8px;
+  color: #ffe9eb;
+  flex-shrink: 0;
+  padding: 7px 9px;
+}
+
 .stats-grid {
   display: grid;
   gap: 14px;
@@ -759,6 +792,11 @@ code,
     flex-direction: column;
     gap: 12px;
     padding: 0 16px;
+  }
+
+  .health-alert {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .tab-nav,

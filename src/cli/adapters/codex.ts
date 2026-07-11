@@ -3,8 +3,9 @@ import { dirname } from "path";
 import { getPolicyPresetDescription, readPolicy } from "../../config/policy.js";
 import { getCodexHooksPath, getDashboardUrl } from "../../paths.js";
 import { mergeCodexHooksFile, removeManagedCodexHooks, type CodexHooksFile } from "../codex-settings.js";
+import { evaluateCodexHook, queryCodexHooks } from "../codex-hook-status.js";
 import { findExecutable, launchCommand, shellQuote } from "../command-utils.js";
-import { getBetterSqliteHealthCheck, getRuntimeConsistencyCheck } from "../health.js";
+import { getBetterSqliteHealthCheck, getHookRuntimeHealthCheck, getRuntimeConsistencyCheck } from "../health.js";
 import type { InstallState } from "../install-state.js";
 import type { RuntimePaths } from "../runtime.js";
 import type { DoctorCheck, DoctorSummary, HostAdapter, InstallSummary, UninstallSummary } from "./types.js";
@@ -69,23 +70,21 @@ export class CodexAdapter implements HostAdapter {
     };
   }
 
-  doctor(runtime: RuntimePaths, state: InstallState): DoctorSummary {
+  async doctor(runtime: RuntimePaths, state: InstallState): Promise<DoctorSummary> {
     const hooksPath = getCodexHooksPath();
-    const hooksFile = this.readHooksFile(hooksPath);
     const preToolCommand = state.targets.codex?.commands?.preToolUse;
     const userPromptCommand = state.targets.codex?.commands?.userPrompt;
     const policy = readPolicy();
-    const hasPreToolHook =
-      typeof preToolCommand === "string" &&
-      (hooksFile.hooks?.PreToolUse ?? []).some((entry) =>
-        entry.hooks.some((hook) => hook.command === preToolCommand)
-      );
-    const hasUserPromptHook =
-      typeof userPromptCommand === "string" &&
-      (hooksFile.hooks?.UserPromptSubmit ?? []).some((entry) =>
-        entry.hooks.some((hook) => hook.command === userPromptCommand)
-      );
     const codexBinary = findExecutable("codex");
+    const hookQuery = codexBinary
+      ? await queryCodexHooks(codexBinary, process.cwd(), runtime.packageVersion)
+      : { ok: false, hooks: [], details: "Codex CLI is not available, so effective hooks could not be verified." };
+    const preToolStatus = typeof preToolCommand === "string" && hookQuery.ok
+      ? evaluateCodexHook(hookQuery.hooks, "preToolUse", preToolCommand)
+      : { ok: false, details: hookQuery.ok ? "No managed PreToolUse command is recorded." : hookQuery.details };
+    const userPromptStatus = typeof userPromptCommand === "string" && hookQuery.ok
+      ? evaluateCodexHook(hookQuery.hooks, "userPromptSubmit", userPromptCommand)
+      : { ok: false, details: hookQuery.ok ? "No managed UserPromptSubmit command is recorded." : hookQuery.details };
 
     const checks: DoctorCheck[] = [
       {
@@ -102,34 +101,31 @@ export class CodexAdapter implements HostAdapter {
       },
       getRuntimeConsistencyCheck(runtime, state),
       getBetterSqliteHealthCheck(runtime),
+      getHookRuntimeHealthCheck("codex"),
       {
         label: "Policy preset",
         ok: true,
         details: `${policy.preset}: ${getPolicyPresetDescription(policy.preset)}`,
       },
       {
+        label: "Codex effective hook discovery",
+        ok: hookQuery.ok,
+        details: hookQuery.details,
+      },
+      {
         label: "PreToolUse hook",
-        ok: hasPreToolHook,
-        details: hasPreToolHook
-          ? "Hook command is present in Codex hooks."
-          : "PreToolUse hook is missing or no longer matches the managed install state.",
+        ok: preToolStatus.ok,
+        details: preToolStatus.details,
       },
       {
         label: "UserPromptSubmit hook",
-        ok: hasUserPromptHook,
-        details: hasUserPromptHook
-          ? "Prompt scanning hook is present in Codex hooks."
-          : "UserPromptSubmit hook is missing or no longer matches the managed install state.",
+        ok: userPromptStatus.ok,
+        details: userPromptStatus.details,
       },
       {
         label: "Codex hook coverage",
         ok: true,
         details: "VibeGuard protects Codex through official hooks; unsupported Codex tool paths are outside this guarantee.",
-      },
-      {
-        label: "Codex hook trust",
-        ok: true,
-        details: "If Codex asks to review hooks, trust the VibeGuard entries from `/hooks` before relying on enforcement.",
       },
       {
         label: "Dashboard",

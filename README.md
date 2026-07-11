@@ -27,7 +27,7 @@ VibeGuard installs managed hooks for Claude Code and Codex. Before supported pro
 - API keys and tokens for OpenAI, Anthropic, AWS, GitHub, GitLab, Stripe, Slack, SendGrid, NPM, PyPI, and more
 - Private keys, database URLs with passwords, generic secret assignments, JWTs, and password URLs
 - Sensitive files such as `.env`, SSH keys, AWS credentials, Docker/Kubernetes configs, shell history, and `.netrc`
-- Dangerous commands such as `rm -rf /`, `mkfs`, `dd of=/dev/...`, fork bombs, force push to main, pipe-to-shell, and destructive SQL
+- Dangerous commands such as `rm -rf /`, recursive deletion of the current or relative paths, `mkfs`, `dd of=/dev/...`, fork bombs, force push to main, pipe-to-shell, and destructive SQL
 
 ## Install
 
@@ -63,7 +63,7 @@ vibeguard doctor --target codex
 vibeguard launch codex -- --help
 ```
 
-Codex integration includes `UserPromptSubmit` secret scanning, `PreToolUse` scanning for supported tool events such as `Bash`, `apply_patch`, `Edit`, and `Write`, and dashboard logging. Coverage follows the official Codex hook surface. If Codex asks you to review hooks, trust the VibeGuard entries from `/hooks` before relying on enforcement.
+Codex integration includes `UserPromptSubmit` secret scanning, `PreToolUse` scanning for supported tool events such as `Bash`, `apply_patch`, `Edit`, and `Write`, and dashboard logging. Coverage follows the official Codex hook surface. `vibeguard doctor --target codex` queries Codex's effective hook list and verifies that managed hooks are enabled and trusted.
 
 ## Policy Presets
 
@@ -101,7 +101,7 @@ vibeguard mcp
 vibeguard dashboard
 ```
 
-Open [http://localhost:7847](http://localhost:7847). The dashboard shows overview statistics, daily trends, filterable event history, rule browsing, and custom pattern management.
+Open [http://localhost:7847](http://localhost:7847). The dashboard shows overview statistics, hook runtime health, daily trends, filterable event history, rule browsing, and custom pattern management.
 
 ## How It Works
 
@@ -138,6 +138,16 @@ If you switched Node versions, reinstall the global package in the active Node v
 npm install -g @embodot/vibeguard
 vibeguard install
 vibeguard doctor
+```
+
+### Hook protection entered fail-open mode
+
+VibeGuard allows the operation if a hook cannot parse its input or load its runtime dependencies, but records a safe degradation marker at `~/.vibeguard/health.json`. The marker contains only the hook name, failure type, and timestamp. It never stores the original prompt or tool input.
+
+Run the target-specific doctor command for details. A successful invocation of the affected hook clears the marker automatically.
+
+```bash
+vibeguard doctor --target codex
 ```
 
 ## Development

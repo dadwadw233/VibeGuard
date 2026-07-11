@@ -58,9 +58,10 @@ export interface UserPromptInput {
 }
 
 export interface HookOutput {
+  systemMessage?: string;
   hookSpecificOutput?: {
     hookEventName: string;
-    permissionDecision: "allow" | "deny" | "ask";
+    permissionDecision?: "allow" | "deny" | "ask";
     permissionDecisionReason?: string;
     additionalContext?: string;
   };
@@ -69,4 +70,9 @@ export interface HookOutput {
 export interface UserPromptOutput {
   decision?: "block";
   reason?: string;
+  systemMessage?: string;
+  hookSpecificOutput?: {
+    hookEventName: "UserPromptSubmit";
+    additionalContext?: string;
+  };
 }

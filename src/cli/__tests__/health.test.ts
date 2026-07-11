@@ -1,5 +1,14 @@
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { describe, expect, it } from "vitest";
-import { getBetterSqliteHealthCheck, getRuntimeConsistencyCheck, getRuntimeInstallMetadata } from "../health.js";
+import { recordHookDegradation } from "../../health-state.js";
+import {
+  getBetterSqliteHealthCheck,
+  getHookRuntimeHealthCheck,
+  getRuntimeConsistencyCheck,
+  getRuntimeInstallMetadata,
+} from "../health.js";
 import type { InstallState } from "../install-state.js";
 import type { RuntimePaths } from "../runtime.js";
 
@@ -60,14 +69,19 @@ describe("cli health checks", () => {
   });
 
   it("reports healthy better-sqlite3 probe results", () => {
-    const check = getBetterSqliteHealthCheck(createRuntimePaths(), () => ({
-      ok: true,
-      status: 0,
-      stdout: "",
-      stderr: "",
-    }));
+    const calls: unknown[][] = [];
+    const check = getBetterSqliteHealthCheck(createRuntimePaths(), ((...args: unknown[]) => {
+      calls.push(args);
+      return {
+        ok: true,
+        status: 0,
+        stdout: "",
+        stderr: "",
+      };
+    }) as never);
     expect(check.ok).toBe(true);
     expect(check.details).toContain("Loaded successfully");
+    expect(calls[0]?.[2]).toEqual({ cwd: "/tmp/vibeguard" });
   });
 
   it("returns actionable remediation for ABI mismatch probe failures", () => {
@@ -79,5 +93,22 @@ describe("cli health checks", () => {
     }));
     expect(check.ok).toBe(false);
     expect(check.details).toContain("npm rebuild better-sqlite3");
+  });
+
+  it("reports recorded Codex fail-open degradation", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "vibeguard-doctor-health-"));
+    const previousHome = process.env.VIBEGUARD_HOME_DIR;
+    process.env.VIBEGUARD_HOME_DIR = tempDir;
+    try {
+      recordHookDegradation("codex:PreToolUse", "handler-error");
+      const check = getHookRuntimeHealthCheck("codex");
+
+      expect(check.ok).toBe(false);
+      expect(check.details).toContain("PreToolUse");
+      expect(check.details).toContain("fail-open");
+    } finally {
+      process.env.VIBEGUARD_HOME_DIR = previousHome;
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });

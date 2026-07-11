@@ -86,7 +86,10 @@ function setOverviewLoading() {
 async function loadOverview() {
   setOverviewLoading();
   try {
-    const stats = await fetchJson(`${API}/api/stats`);
+    const [stats, health] = await Promise.all([
+      fetchJson(`${API}/api/stats`),
+      fetchJson(`${API}/api/health`),
+    ]);
 
     document.getElementById("stat-total").textContent = formatCount(stats.total_events ?? 0);
     document.getElementById("stat-blocked").textContent = formatCount(stats.blocked_count ?? 0);
@@ -95,8 +98,11 @@ async function loadOverview() {
 
     renderDailyChart(stats.recent_daily ?? []);
     renderSeverityBars(stats.by_severity ?? {});
+    renderHookHealth(health);
 
-    if ((stats.blocked_count ?? 0) > 0) {
+    if (!health.ok) {
+      setHeaderStatus("Protection degraded", "error");
+    } else if ((stats.blocked_count ?? 0) > 0) {
       setHeaderStatus(`Watch: ${formatCount(stats.blocked_count)} blocked`, "watch");
     } else {
       setHeaderStatus(`Live: ${formatCount(stats.total_events ?? 0)} events monitored`, "live");
@@ -107,6 +113,26 @@ async function loadOverview() {
     document.getElementById("severity-bars").innerHTML = renderEmptyState("Unable to load severity data.");
     setHeaderStatus("Dashboard sync failed", "error");
   }
+}
+
+function renderHookHealth(health) {
+  const alert = document.getElementById("health-alert");
+  const details = document.getElementById("health-alert-details");
+  const degradations = Array.isArray(health?.degradations) ? health.degradations : [];
+
+  if (health?.ok || degradations.length === 0) {
+    alert.classList.add("hidden");
+    details.textContent = "";
+    return;
+  }
+
+  const labels = degradations.map((entry) => {
+    const hookName = String(entry.source || "hook").split(":").pop();
+    const observedAt = entry.observedAt ? formatTime(entry.observedAt.replace(/Z$/, "")) : "unknown time";
+    return `${hookName} entered fail-open mode at ${observedAt} (${entry.reason || "unknown error"})`;
+  });
+  details.textContent = `${labels.join("; ")}. Run doctor after resolving the runtime issue.`;
+  alert.classList.remove("hidden");
 }
 
 function renderDailyChart(daily) {

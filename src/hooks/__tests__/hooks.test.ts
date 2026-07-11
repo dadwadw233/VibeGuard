@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { RuntimeRules } from "../../config/index.js";
 import type { HookInput, UserPromptInput } from "../../scanner/types.js";
-import { handleCodexPreToolUse, handlePreToolUse, handleUserPromptSubmit } from "../shared.js";
+import {
+  handleCodexPreToolUse,
+  handleCodexUserPromptSubmit,
+  handlePreToolUse,
+  handleUserPromptSubmit,
+} from "../shared.js";
 
 describe("handlePreToolUse", () => {
   it("denies dangerous bash commands with a CLI-visible reason", () => {
@@ -13,7 +18,7 @@ describe("handlePreToolUse", () => {
       },
     };
 
-    const output = handlePreToolUse(input);
+    const output = handlePreToolUse(input, undefined, { preset: "balanced" });
     expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
     expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("VibeGuard blocked this Bash action");
     expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("Recursive force delete of root directory");
@@ -28,7 +33,7 @@ describe("handlePreToolUse", () => {
       },
     };
 
-    const output = handlePreToolUse(input);
+    const output = handlePreToolUse(input, undefined, { preset: "balanced" });
     expect(output?.hookSpecificOutput?.permissionDecision).toBe("ask");
     expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("Confirm only if the operation is intentional");
   });
@@ -42,7 +47,7 @@ describe("handlePreToolUse", () => {
       },
     };
 
-    const output = handlePreToolUse(input);
+    const output = handlePreToolUse(input, undefined, { preset: "balanced" });
     expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
     expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("Read action");
   });
@@ -162,12 +167,12 @@ describe("handleCodexPreToolUse", () => {
       },
     };
 
-    const output = handleCodexPreToolUse(input);
+    const output = handleCodexPreToolUse(input, undefined, { preset: "balanced" });
     expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
     expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("VibeGuard blocked this Codex Bash action");
   });
 
-  it("adds context instead of denying medium-severity commands", () => {
+  it("emits valid visible context instead of denying medium-severity commands", () => {
     const input: HookInput = {
       hook_event_name: "PreToolUse",
       tool_name: "Bash",
@@ -176,8 +181,11 @@ describe("handleCodexPreToolUse", () => {
       },
     };
 
-    const output = handleCodexPreToolUse(input);
-    expect(output?.hookSpecificOutput?.permissionDecision).toBe("allow");
+    const output = handleCodexPreToolUse(input, undefined, { preset: "balanced" });
+    expect(output?.hookSpecificOutput).not.toHaveProperty("permissionDecision");
+    expect(output).toEqual(expect.objectContaining({
+      systemMessage: expect.stringContaining("VibeGuard flagged this Codex Bash action"),
+    }));
     expect(output?.hookSpecificOutput?.additionalContext).toContain("VibeGuard flagged this Codex Bash action");
   });
 
@@ -190,7 +198,7 @@ describe("handleCodexPreToolUse", () => {
       },
     };
 
-    const output = handleCodexPreToolUse(input);
+    const output = handleCodexPreToolUse(input, undefined, { preset: "balanced" });
     expect(output?.hookSpecificOutput?.permissionDecision).toBe("deny");
     expect(output?.hookSpecificOutput?.permissionDecisionReason).toContain("Anthropic API Key");
   });
@@ -203,7 +211,7 @@ describe("handleUserPromptSubmit", () => {
       prompt: `Here is the key: ${"sk-ant-" + "a".repeat(80)}`,
     };
 
-    const output = handleUserPromptSubmit(input);
+    const output = handleUserPromptSubmit(input, undefined, "UserPrompt", { preset: "balanced" });
     expect(output).toEqual(
       expect.objectContaining({
         decision: "block",
@@ -218,12 +226,29 @@ describe("handleUserPromptSubmit", () => {
       prompt: 'token = "temporary-secret-value"',
     };
 
-    const output = handleUserPromptSubmit(input);
+    const output = handleUserPromptSubmit(input, undefined, "UserPrompt", { preset: "balanced" });
     expect(output).toEqual(
       expect.objectContaining({
         additionalContext: expect.stringContaining("VibeGuard warning"),
       })
     );
+  });
+
+  it("emits a valid Codex UserPromptSubmit warning", () => {
+    const input: UserPromptInput = {
+      hook_event_name: "UserPromptSubmit",
+      prompt: 'token = "temporary-secret-value"',
+    };
+
+    const output = handleCodexUserPromptSubmit(input, undefined, { preset: "balanced" });
+    expect(output).toEqual(expect.objectContaining({
+      systemMessage: expect.stringContaining("VibeGuard warning"),
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: expect.stringContaining("VibeGuard warning"),
+      },
+    }));
+    expect(output).not.toHaveProperty("additionalContext");
   });
 
   it("returns no output for safe prompts", () => {
@@ -254,7 +279,7 @@ describe("handleUserPromptSubmit", () => {
       commandRules: [],
     };
 
-    const output = handleUserPromptSubmit(input, runtimeRules);
+    const output = handleUserPromptSubmit(input, runtimeRules, "UserPrompt", { preset: "balanced" });
     expect(output).toEqual(
       expect.objectContaining({
         decision: "block",

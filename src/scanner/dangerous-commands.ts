@@ -1,17 +1,29 @@
 import type { CommandRule } from "./types.js";
 
+const RECURSIVE_FORCE_RM_PREFIX = String.raw`\brm\s+(?=[^;&|\n]*(?:--recursive\b|-[a-zA-Z]*[rR][a-zA-Z]*\b))(?=[^;&|\n]*(?:--force\b|-[a-zA-Z]*f[a-zA-Z]*\b))(?:(?:--?[a-zA-Z-]+|--)\s+)+`;
+
+function recursiveForceRmPattern(target: string): RegExp {
+  return new RegExp(`${RECURSIVE_FORCE_RM_PREFIX}${target}`);
+}
+
 export const DANGEROUS_COMMAND_RULES: CommandRule[] = [
   // === Destructive File Operations ===
   {
     id: "rm-rf-root",
     description: "Recursive force delete of root directory",
-    pattern: /rm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z]+\s+)*|(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+)[/](?:\s|$)/,
+    pattern: recursiveForceRmPattern(String.raw`\/(?:\*)?(?=\s|$|[;&|])`),
     severity: "critical",
   },
   {
     id: "rm-rf-home",
     description: "Recursive force delete of home directory",
-    pattern: /rm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z]+\s+)*|(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+)~(?:[/\s]|$)/,
+    pattern: recursiveForceRmPattern(String.raw`~(?:\/[^\s;&|]*)?(?=\s|$|[;&|])`),
+    severity: "critical",
+  },
+  {
+    id: "rm-rf-working-tree",
+    description: "Recursive force delete of the current or parent directory",
+    pattern: recursiveForceRmPattern(String.raw`(?:\.(?:\/(?:\.?(?:\*)?)?)?|\.\.(?:\/(?:\*)?)?)(?=\s|$|[;&|])`),
     severity: "critical",
   },
   {
@@ -19,6 +31,14 @@ export const DANGEROUS_COMMAND_RULES: CommandRule[] = [
     description: "Recursive force delete with wildcard at dangerous path",
     pattern: /rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+(?:\/(?:usr|etc|var|opt|home|boot|sys|proc)|~)\//,
     severity: "critical",
+  },
+  {
+    id: "rm-rf-path",
+    description: "Recursive force delete of a file-system path",
+    pattern: recursiveForceRmPattern(
+      String.raw`(?!\/(?:\*)?(?=\s|$|[;&|]))(?!~(?:\/[^\s;&|]*)?(?=\s|$|[;&|]))(?!\.(?:\/(?:\.?(?:\*)?)?)?(?=\s|$|[;&|]))(?!\.\.(?:\/(?:\*)?)?(?=\s|$|[;&|]))[^\s;&|]+`
+    ),
+    severity: "high",
   },
 
   // === SQL Destruction ===

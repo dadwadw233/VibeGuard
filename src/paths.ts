@@ -19,6 +19,10 @@ export function getPolicyPath(): string {
   return join(getVibeGuardDir(), "policy.json");
 }
 
+export function getHookHealthPath(): string {
+  return join(getVibeGuardDir(), "health.json");
+}
+
 export function getClaudeConfigDir(): string {
   return process.env.VIBEGUARD_CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
 }

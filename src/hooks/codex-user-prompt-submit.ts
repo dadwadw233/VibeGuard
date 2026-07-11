@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import type { UserPromptInput } from "../scanner/types.js";
-import { handleUserPromptSubmit } from "./shared.js";
+import { executeCodexHook } from "./codex-runtime.js";
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -12,20 +12,17 @@ async function readStdin(): Promise<string> {
 }
 
 async function main() {
-  let input: UserPromptInput;
-  try {
-    input = JSON.parse(await readStdin()) as UserPromptInput;
-  } catch {
-    process.exit(0);
-  }
-
-  const output = handleUserPromptSubmit(input, undefined, "Codex:UserPrompt");
-  if (!output) process.exit(0);
+  const rawInput = await readStdin();
+  const output = await executeCodexHook<UserPromptInput>(rawInput, "codex:UserPromptSubmit", async (input) => {
+    const { handleCodexUserPromptSubmit } = await import("./shared.js");
+    return handleCodexUserPromptSubmit(input);
+  });
+  if (!output) return;
 
   process.stdout.write(JSON.stringify(output));
-  process.exit(0);
 }
 
-main().catch(() => {
-  process.exit(0);
+main().catch(async () => {
+  const output = await executeCodexHook("", "codex:UserPromptSubmit", async () => undefined);
+  process.stdout.write(JSON.stringify(output));
 });

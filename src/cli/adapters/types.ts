@@ -32,6 +32,6 @@ export interface HostAdapter {
   readonly target: HostTarget;
   install(runtime: RuntimePaths, state: InstallState): InstallSummary;
   uninstall(runtime: RuntimePaths, state: InstallState): UninstallSummary;
-  doctor(runtime: RuntimePaths, state: InstallState): DoctorSummary;
+  doctor(runtime: RuntimePaths, state: InstallState): DoctorSummary | Promise<DoctorSummary>;
   launch(runtime: RuntimePaths, state: InstallState, args: string[]): Promise<number>;
 }

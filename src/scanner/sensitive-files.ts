@@ -125,7 +125,6 @@ export const SENSITIVE_FILE_RULES: FileRule[] = [
     description: "File with 'secret' in name",
     pattern: /(?:^|[/\\])[^/\\]*secret[^/\\]*$/i,
     severity: "high",
-    allowlist: undefined,
   },
   {
     id: "password-file",

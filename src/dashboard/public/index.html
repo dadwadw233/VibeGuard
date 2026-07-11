@@ -35,6 +35,14 @@
         <p>Live detection metrics across all recorded security events.</p>
       </div>
 
+      <aside id="health-alert" class="health-alert hidden" role="status" aria-live="polite">
+        <div>
+          <p class="health-alert-title">Protection degraded</p>
+          <p id="health-alert-details" class="health-alert-details"></p>
+        </div>
+        <code>vibeguard doctor --target codex</code>
+      </aside>
+
       <div class="stats-grid" aria-live="polite">
         <article class="stat-card">
           <p class="stat-label">Total Events</p>

@@ -164,6 +164,32 @@ describe("scanCommand - Dangerous Command Detection", () => {
     expect(result.blocked).toBe(true);
   });
 
+  it("detects rm -rf /* as root destruction", () => {
+    const result = scanCommand("rm -rf /*");
+    expect(result.findings.some((f) => f.rule_id === "rm-rf-root")).toBe(true);
+    expect(result.blocked).toBe(true);
+  });
+
+  it.each(["rm -rf .", "rm -rf ./", "rm -rf ./*", "rm -rf ..", "rm -rf ../"])(
+    "treats %s as critical working-tree destruction",
+    (command) => {
+      const result = scanCommand(command);
+      const finding = result.findings.find((item) => item.rule_id === "rm-rf-working-tree");
+      expect(finding?.severity).toBe("critical");
+      expect(result.blocked).toBe(true);
+    }
+  );
+
+  it.each(["rm -rf src", "rm -rf ./build", "rm -rf ../sibling", "rm -rf /tmp/project"])(
+    "treats %s as high-risk recursive deletion",
+    (command) => {
+      const result = scanCommand(command);
+      const finding = result.findings.find((item) => item.rule_id === "rm-rf-path");
+      expect(finding?.severity).toBe("high");
+      expect(result.blocked).toBe(true);
+    }
+  );
+
   it("detects DROP TABLE", () => {
     const result = scanCommand("mysql -e 'DROP TABLE users'");
     expect(result.findings.some((f) => f.rule_id === "drop-table")).toBe(true);

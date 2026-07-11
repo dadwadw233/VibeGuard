@@ -160,7 +160,7 @@ async function runDoctor(args: string[]): Promise<number> {
 
   let failed = 0;
   for (const target of targets) {
-    const summary = adapters[target].doctor(runtime, state);
+    const summary = await adapters[target].doctor(runtime, state);
     console.log(`\n${target.toUpperCase()}`);
     for (const check of summary.checks) {
       console.log(`${check.ok ? "[ok]" : "[warn]"} ${check.label}: ${check.details}`);

@@ -15,6 +15,7 @@ import {
 import { SECRET_RULES } from "../scanner/secret-patterns.js";
 import { SENSITIVE_FILE_RULES } from "../scanner/sensitive-files.js";
 import { DANGEROUS_COMMAND_RULES } from "../scanner/dangerous-commands.js";
+import { readHookHealthState } from "../health-state.js";
 import {
   getBuiltinOverride,
   getCustomOverride,
@@ -31,6 +32,14 @@ app.use(express.json());
 app.use(express.static(join(__dirname, "../dashboard/public")));
 
 // --- API Routes ---
+
+app.get("/api/health", (_req, res) => {
+  const degradations = Object.values(readHookHealthState().degradations);
+  res.json({
+    ok: degradations.length === 0,
+    degradations,
+  });
+});
 
 function getStorageErrorHint(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -118,7 +127,7 @@ app.get("/api/rules", withStoreGuard((_req, res) => {
 }));
 
 app.put("/api/rules/:ruleId", withStoreGuard((req, res) => {
-  const { ruleId } = req.params;
+  const ruleId = Array.isArray(req.params.ruleId) ? req.params.ruleId[0] : req.params.ruleId;
   const { enabled, severity, builtin } = req.body;
   const isBuiltin = typeof builtin === "boolean" ? builtin : isBuiltinRuleId(ruleId);
 
@@ -160,7 +169,8 @@ app.post("/api/rules/custom", withStoreGuard((req, res) => {
 }));
 
 app.delete("/api/rules/custom/:id", withStoreGuard((req, res) => {
-  removeCustomPattern(req.params.id);
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  removeCustomPattern(id);
   res.json({ ok: true });
 }));
 

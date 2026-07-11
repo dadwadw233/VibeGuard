@@ -1,9 +1,10 @@
 import type { DoctorCheck } from "./adapters/types.js";
-import { runCommand, type CommandResult } from "./command-utils.js";
+import { readHookHealthState } from "../health-state.js";
+import { runCommand, type CommandResult, type RunCommandOptions } from "./command-utils.js";
 import type { InstallState, RuntimeInstallMetadata } from "./install-state.js";
 import type { RuntimePaths } from "./runtime.js";
 
-export type CommandRunner = (command: string, args: string[]) => CommandResult;
+export type CommandRunner = (command: string, args: string[], options?: RunCommandOptions) => CommandResult;
 
 export function getRuntimeInstallMetadata(runtime: RuntimePaths): RuntimeInstallMetadata {
   return {
@@ -69,7 +70,7 @@ export function getBetterSqliteHealthCheck(
 ): DoctorCheck {
   const script =
     "import('better-sqlite3').then(() => process.exit(0)).catch((err) => { console.error(err && err.message ? err.message : String(err)); process.exit(1); });";
-  const probe = run(runtime.nodeBinary, ["-e", script]);
+  const probe = run(runtime.nodeBinary, ["-e", script], { cwd: runtime.packageRoot });
 
   if (probe.ok) {
     return {
@@ -83,5 +84,27 @@ export function getBetterSqliteHealthCheck(
     label: "Native module (better-sqlite3)",
     ok: false,
     details: formatNativeFailure(probe),
+  };
+}
+
+export function getHookRuntimeHealthCheck(target: "claude" | "codex"): DoctorCheck {
+  const degradations = Object.values(readHookHealthState().degradations)
+    .filter((entry) => entry?.source.startsWith(`${target}:`));
+
+  if (degradations.length === 0) {
+    return {
+      label: "Hook runtime health",
+      ok: true,
+      details: "No fail-open hook degradation is currently recorded.",
+    };
+  }
+
+  const details = degradations
+    .map((entry) => `${entry!.source.split(":")[1]} at ${entry!.observedAt} (${entry!.reason})`)
+    .join("; ");
+  return {
+    label: "Hook runtime health",
+    ok: false,
+    details: `Protection entered fail-open mode: ${details}. Run the affected hook successfully or reinstall VibeGuard, then retry.`,
   };
 }

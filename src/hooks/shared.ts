@@ -116,20 +116,25 @@ export function handleCodexPreToolUse(
   }
 
   return {
+    systemMessage: message,
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
-      permissionDecision: "allow",
       additionalContext: message,
     },
   };
 }
 
-export function handleUserPromptSubmit(
+interface UserPromptFindingResult {
+  blocked: boolean;
+  reasons: string;
+}
+
+function inspectUserPrompt(
   input: UserPromptInput,
-  runtimeRules: RuntimeRules = getRuntimeRules(),
-  toolName = "UserPrompt",
-  policy: Policy = readPolicy()
-): UserPromptOutput | { additionalContext: string } | undefined {
+  runtimeRules: RuntimeRules,
+  toolName: string,
+  policy: Policy
+): UserPromptFindingResult | undefined {
   if (!input.prompt || input.prompt.trim().length === 0) return undefined;
 
   const result = scanContent(input.prompt, undefined, runtimeRules.secretRules);
@@ -145,16 +150,54 @@ export function handleUserPromptSubmit(
 
   if (result.findings.length === 0) return undefined;
 
-  const reasons = result.findings.map((finding) => `[${finding.severity.toUpperCase()}] ${finding.description}`).join("; ");
+  return {
+    blocked,
+    reasons: getReasons(result),
+  };
+}
 
-  if (blocked) {
+export function handleUserPromptSubmit(
+  input: UserPromptInput,
+  runtimeRules: RuntimeRules = getRuntimeRules(),
+  toolName = "UserPrompt",
+  policy: Policy = readPolicy()
+): UserPromptOutput | { additionalContext: string } | undefined {
+  const findingResult = inspectUserPrompt(input, runtimeRules, toolName, policy);
+  if (!findingResult) return undefined;
+
+  if (findingResult.blocked) {
     return {
       decision: "block",
-      reason: `🛡️ VibeGuard blocked this message because it appears to contain sensitive information. ${reasons}. Remove the secret and send the message again.`,
+      reason: `🛡️ VibeGuard blocked this message because it appears to contain sensitive information. ${findingResult.reasons}. Remove the secret and send the message again.`,
     };
   }
 
   return {
-    additionalContext: `⚠️ VibeGuard warning: the user's message may contain sensitive information. ${reasons}. Remind the user to avoid sharing secrets in chat.`,
+    additionalContext: `⚠️ VibeGuard warning: the user's message may contain sensitive information. ${findingResult.reasons}. Remind the user to avoid sharing secrets in chat.`,
+  };
+}
+
+export function handleCodexUserPromptSubmit(
+  input: UserPromptInput,
+  runtimeRules: RuntimeRules = getRuntimeRules(),
+  policy: Policy = readPolicy()
+): UserPromptOutput | undefined {
+  const findingResult = inspectUserPrompt(input, runtimeRules, "Codex:UserPrompt", policy);
+  if (!findingResult) return undefined;
+
+  if (findingResult.blocked) {
+    return {
+      decision: "block",
+      reason: `🛡️ VibeGuard blocked this message because it appears to contain sensitive information. ${findingResult.reasons}. Remove the secret and send the message again.`,
+    };
+  }
+
+  const message = `⚠️ VibeGuard warning: the user's message may contain sensitive information. ${findingResult.reasons}. Remind the user to avoid sharing secrets in chat.`;
+  return {
+    systemMessage: message,
+    hookSpecificOutput: {
+      hookEventName: "UserPromptSubmit",
+      additionalContext: message,
+    },
   };
 }

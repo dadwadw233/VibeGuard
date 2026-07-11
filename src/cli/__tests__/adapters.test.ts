@@ -25,7 +25,7 @@ function createRuntime(tempDir: string): RuntimePaths {
   writeFileSync(join(distDir, "dashboard", "server.js"), "", "utf-8");
 
   return {
-    packageRoot: tempDir,
+    packageRoot: process.cwd(),
     packageName: "@embodot/vibeguard",
     packageVersion: "0.1.1-test",
     distDir,
@@ -156,8 +156,7 @@ exit 0
     expect(() => readFileSync(claudeLog, "utf-8")).toThrow();
   });
 
-  it("installs and uninstalls Codex hooks without removing user hooks", () => {
-    writeExecutable(join(binDir, "codex"), "#!/bin/sh\nexit 0\n");
+  it("installs, effectively diagnoses, and uninstalls Codex hooks without removing user hooks", async () => {
     const hooksPath = join(tempDir, "codex-home", "hooks.json");
     mkdirSync(join(tempDir, "codex-home"), { recursive: true });
     writeFileSync(hooksPath, JSON.stringify({
@@ -190,11 +189,40 @@ exit 0
     expect(installedHooks).toContain("codex-user-prompt-submit.js");
     expect(installedHooks).toContain("/custom/hook.js");
 
-    const doctor = adapter.doctor(runtime, {
+    const effectiveHooks = [
+      {
+        eventName: "preToolUse",
+        command: installSummary.state?.commands?.preToolUse,
+        enabled: true,
+        isManaged: false,
+        trustStatus: "trusted",
+      },
+      {
+        eventName: "userPromptSubmit",
+        command: installSummary.state?.commands?.userPrompt,
+        enabled: true,
+        isManaged: false,
+        trustStatus: "trusted",
+      },
+    ];
+    writeExecutable(join(binDir, "codex"), `#!${process.execPath}
+import readline from "node:readline";
+const lines = readline.createInterface({ input: process.stdin });
+lines.on("line", (line) => {
+  const request = JSON.parse(line);
+  if (request.id === 0) process.stdout.write(JSON.stringify({ id: 0, result: {} }) + "\\n");
+  if (request.id === 1) process.stdout.write(JSON.stringify({ id: 1, result: { data: [{ hooks: ${JSON.stringify(effectiveHooks)}, warnings: [], errors: [] }] } }) + "\\n");
+});
+`);
+
+    const doctor = await adapter.doctor(runtime, {
       ...state,
       targets: { codex: installSummary.state },
     });
     expect(doctor.ok).toBe(true);
+    expect(doctor.checks.find((check) => check.label === "PreToolUse hook")?.details).toContain(
+      "enabled and trusted"
+    );
 
     const uninstallSummary = adapter.uninstall(runtime, {
       ...state,
